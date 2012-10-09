@@ -7,43 +7,49 @@ using System.Collections.Generic;
 using System.Configuration;
 
 
-namespace FluentCassandra.Sandbox
-{
-    internal class Program
-    {
+namespace FluentCassandra.Sandbox {
+    internal class Program {
         public static readonly string KeyspaceName = ConfigurationManager.AppSettings["TestKeySpace"];
         public static readonly Server Server = new Server(ConfigurationManager.AppSettings["TestServer"]);
-		
+
 
         #region Setup
 
-        private static void SetupKeyspace()
-        {
-            using (var db = new CassandraContext(keyspace: KeyspaceName, server: Server))
-            {
-                if (db.KeyspaceExists(KeyspaceName))
+        private static void SetupKeyspace() {
+            using(var db = new CassandraContext(keyspace: KeyspaceName, server: Server)) {
+                if(db.KeyspaceExists(KeyspaceName))
                     db.DropKeyspace(KeyspaceName);
 
-                var keyspace = new CassandraKeyspace(new CassandraKeyspaceSchema
-                {
+                var keyspace = new CassandraKeyspace(new CassandraKeyspaceSchema {
                     Name = KeyspaceName,
                 }, db);
 
                 keyspace.TryCreateSelf();
 
                 // create column family using CQL
-                db.ExecuteNonQuery(@"
-                CREATE COLUMNFAMILY Posts (
-	            KEY ascii PRIMARY KEY,
-	            Title text,
-	            Body text,
-	            Author text,
-	            PostedOn timestamp
-                );");
+//                db.ExecuteNonQuery(@"
+//                                CREATE COLUMNFAMILY Posts (
+//                	            KEY ascii PRIMARY KEY,
+//                	            Title text,
+//                	            Body text,
+//                	            Author text,
+//                	            PostedOn timestamp
+//                                );");
+                keyspace.TryCreateColumnFamily(new CassandraColumnFamilySchema {
+                    FamilyName = "Posts",
+                    KeyValueType = CassandraType.AsciiType,
+                    ColumnNameType = CassandraType.UTF8Type,
+                    DefaultColumnValueType = CassandraType.UTF8Type,
+                    Columns = {
+                        new CassandraColumnSchema{Name = "Title"},
+                        new CassandraColumnSchema{Name = "Body"},
+                        new CassandraColumnSchema{Name = "Author"},
+                        new CassandraColumnSchema{Name = "PostedOn",ValueType = CassandraType.DateType}
+                    }
+                });
 
                 // create column family using API
-                keyspace.TryCreateColumnFamily(new CassandraColumnFamilySchema
-                {
+                keyspace.TryCreateColumnFamily(new CassandraColumnFamilySchema {
                     FamilyName = "Tags",
                     KeyValueType = CassandraType.AsciiType,
                     ColumnNameType = CassandraType.Int32Type,
@@ -51,8 +57,7 @@ namespace FluentCassandra.Sandbox
                 });
 
                 // create super column family using API
-                keyspace.TryCreateColumnFamily(new CassandraColumnFamilySchema
-                {
+                keyspace.TryCreateColumnFamily(new CassandraColumnFamilySchema {
                     FamilyName = "Comments",
                     FamilyType = ColumnType.Super,
                     KeyValueType = CassandraType.AsciiType,
@@ -67,8 +72,7 @@ namespace FluentCassandra.Sandbox
 
         #region Console Helpers
 
-        private static void ConsoleHeader(string header)
-        {
+        private static void ConsoleHeader(string header) {
             Console.WriteLine(@"
 ************************************************
 ** " + header + @"
@@ -79,10 +83,8 @@ namespace FluentCassandra.Sandbox
 
         #region Create Post
 
-        private static void CreateFirstPost()
-        {
-            using (var db = new CassandraContext(keyspace: KeyspaceName, server: Server))
-            {
+        private static void CreateFirstPost() {
+            using(var db = new CassandraContext(keyspace: KeyspaceName, server: Server)) {
                 var key = "first-blog-post";
 
                 var postFamily = db.GetColumnFamily("Posts");
@@ -116,10 +118,8 @@ namespace FluentCassandra.Sandbox
             }
         }
 
-        private static void CreateSecondPost()
-        {
-            using (var db = new CassandraContext(keyspace: KeyspaceName, server: Server))
-            {
+        private static void CreateSecondPost() {
+            using(var db = new CassandraContext(keyspace: KeyspaceName, server: Server)) {
                 var key = "second-blog-post";
 
                 var postFamily = db.GetColumnFamily("Posts");
@@ -156,10 +156,8 @@ namespace FluentCassandra.Sandbox
 
         #region Read Post
 
-        private static void ReadFirstPost()
-        {
-            using (var db = new CassandraContext(keyspace: KeyspaceName, server: Server))
-            {
+        private static void ReadFirstPost() {
+            using(var db = new CassandraContext(keyspace: KeyspaceName, server: Server)) {
                 var key = "first-blog-post";
 
                 var postFamily = db.GetColumnFamily("Posts");
@@ -188,15 +186,13 @@ namespace FluentCassandra.Sandbox
 
                 // show tags
                 ConsoleHeader("showing tags");
-                foreach (var tag in tags)
+                foreach(var tag in tags)
                     Console.WriteLine(String.Format("{0}:{1}", tag.ColumnName, tag.ColumnValue));
             }
         }
 
-        private static void ReadAllPosts()
-        {
-            using (var db = new CassandraContext(keyspace: KeyspaceName, server: Server))
-            {
+        private static void ReadAllPosts() {
+            using(var db = new CassandraContext(keyspace: KeyspaceName, server: Server)) {
                 var key = "first-blog-post";
 
                 var tagsFamily = db.GetColumnFamily("Tags");
@@ -212,8 +208,7 @@ namespace FluentCassandra.Sandbox
 
                 // show details
                 ConsoleHeader("showing post");
-                foreach (dynamic post in posts)
-                {
+                foreach(dynamic post in posts) {
                     Console.WriteLine(
                         String.Format("=={0} by {1}==\n{2}",
                             post.Title,
@@ -224,7 +219,7 @@ namespace FluentCassandra.Sandbox
 
                 // show tags
                 ConsoleHeader("showing tags");
-                foreach (var tag in tags)
+                foreach(var tag in tags)
                     Console.WriteLine(String.Format("{0}:{1}", tag.ColumnName, tag.ColumnValue));
             }
         }
@@ -233,10 +228,8 @@ namespace FluentCassandra.Sandbox
 
         #region Update Post
 
-        private static void UpdateFirstPost()
-        {
-            using (var db = new CassandraContext(keyspace: KeyspaceName, server: Server))
-            {
+        private static void UpdateFirstPost() {
+            using(var db = new CassandraContext(keyspace: KeyspaceName, server: Server)) {
                 var key = "first-blog-post";
 
                 var postFamily = db.GetColumnFamily("Posts");
@@ -266,34 +259,31 @@ namespace FluentCassandra.Sandbox
 
         #region Create Comments
 
-        private static void CreateComments()
-        {
-            using (var db = new CassandraContext(keyspace: KeyspaceName, server: Server))
-            {
+        private static void CreateComments() {
+            using(var db = new CassandraContext(keyspace: KeyspaceName, server: Server)) {
                 var key = "first-blog-post";
 
                 // get the comments family
                 var commentsFamily = db.GetSuperColumnFamily("Comments");
 
                 ConsoleHeader("create comments");
-				var postComments = commentsFamily.CreateRecord(key: key);
-				
+                var postComments = commentsFamily.CreateRecord(key: key);
+
                 // lets attach it to the database before we add the comments
                 db.Attach(postComments);
 
                 var dt = new DateTime(2010, 11, 29, 5, 03, 00, DateTimeKind.Local);
 
                 // add 5 comments
-                for (int i = 0; i < 5; i++)
-                {
-					var comment = postComments.CreateSuperColumn();
-					comment["Name"] = "Nick Berardi";
-					comment["Email"] = "nick@coderjournal.com";
+                for(int i = 0; i < 5; i++) {
+                    var comment = postComments.CreateSuperColumn();
+                    comment["Name"] = "Nick Berardi";
+                    comment["Email"] = "nick@coderjournal.com";
 
-					// you can also use it as a dynamic object
-					dynamic dcomment = comment;
-					dcomment.Website = "www.coderjournal.com";
-					dcomment.Comment = "Wow fluent cassandra is really great and easy to use.";
+                    // you can also use it as a dynamic object
+                    dynamic dcomment = comment;
+                    dcomment.Website = "www.coderjournal.com";
+                    dcomment.Comment = "Wow fluent cassandra is really great and easy to use.";
 
                     var commentPostedOn = dt;
                     postComments[commentPostedOn] = comment;
@@ -311,18 +301,15 @@ namespace FluentCassandra.Sandbox
 
         #region Read Comments
 
-        private static void ReadComments()
-        {
-            using (var db = new CassandraContext(keyspace: KeyspaceName, server: Server))
-            {
+        private static void ReadComments() {
+            using(var db = new CassandraContext(keyspace: KeyspaceName, server: Server)) {
                 var key = "first-blog-post";
                 var lastDate = DateTime.Now;
 
                 // get the comments family
                 var commentsFamily = db.GetSuperColumnFamily("Comments");
 
-                for (int page = 0; page < 2; page++)
-                {
+                for(int page = 0; page < 2; page++) {
                     // lets back the date off by a millisecond so we don't get paging overlaps
                     lastDate = lastDate.AddMilliseconds(-1D);
 
@@ -335,8 +322,7 @@ namespace FluentCassandra.Sandbox
                         .TakeColumns(3)
                         .FirstOrDefault();
 
-                    foreach (dynamic comment in comments)
-                    {
+                    foreach(dynamic comment in comments) {
                         var dateTime = (DateTime)comment.ColumnName;
 
                         Console.WriteLine(String.Format("{0:T} : {1} ({2} - {3})",
@@ -355,11 +341,9 @@ namespace FluentCassandra.Sandbox
         #endregion
 
         #region CreateColumnFamilyWithUUIDOperator
-        private static void CreateColumnFamilyWithUUIDOperator()
-        {
+        private static void CreateColumnFamilyWithUUIDOperator() {
 
-            using (var db = new CassandraContext(keyspace: KeyspaceName, server: Server))
-            {
+            using(var db = new CassandraContext(keyspace: KeyspaceName, server: Server)) {
 
                 db.ExecuteNonQuery("CREATE TABLE TestCF (KEY text PRIMARY KEY) WITH comparator=uuid AND default_validation=text;");
 
@@ -380,10 +364,8 @@ namespace FluentCassandra.Sandbox
         #endregion
 
         #region CreateColumnFamilyWithTimestampOperator
-        private static void CreateColumnFamilyWithTimestampOperator()
-        {
-            using (var db = new CassandraContext(keyspace: KeyspaceName, server: Server))
-            {
+        private static void CreateColumnFamilyWithTimestampOperator() {
+            using(var db = new CassandraContext(keyspace: KeyspaceName, server: Server)) {
 
                 db.ExecuteNonQuery("CREATE TABLE TestCF2 (KEY text PRIMARY KEY) WITH comparator=timestamp AND default_validation=text;");
 
@@ -409,10 +391,8 @@ namespace FluentCassandra.Sandbox
         #endregion
 
         #region TombstoneTest
-        private static void TombstoneTest()
-        {
-            using (var db = new CassandraContext(keyspace: KeyspaceName, server: Server))
-            {
+        private static void TombstoneTest() {
+            using(var db = new CassandraContext(keyspace: KeyspaceName, server: Server)) {
 
 
                 db.ExecuteNonQuery("CREATE TABLE OfferReservation (KEY int PRIMARY KEY) WITH comparator = text AND default_validation = float");
@@ -427,10 +407,8 @@ namespace FluentCassandra.Sandbox
         #endregion
 
         #region BigDecimalTest
-        private static void BigDecimalTest()
-        {
-            using (var db = new CassandraContext(keyspace: KeyspaceName, server: Server))
-            {
+        private static void BigDecimalTest() {
+            using(var db = new CassandraContext(keyspace: KeyspaceName, server: Server)) {
 
                 // arrange
                 db.ExecuteNonQuery("CREATE TABLE OfferReservation2 (KEY text PRIMARY KEY) WITH comparator = text AND default_validation = decimal");
@@ -460,9 +438,8 @@ namespace FluentCassandra.Sandbox
             }
         }
         #endregion
-        
-        private static void Main(string[] args)
-        {
+
+        private static void Main(string[] args) {
             SetupKeyspace();
 
             CreateFirstPost();
