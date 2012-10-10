@@ -231,22 +231,22 @@ namespace FluentCassandra.Sandbox {
                     db.SaveChanges(userActivity);
                 }
             }
-            using(var db = new CassandraContext(connectionBuilder)) {
-                Console.WriteLine("get user record {0}", userId);
-                var activityFamily = db.GetColumnFamily(userActivityCFName);
-                var userActivity = (from activity in activityFamily
-                                   where activity.Key == userId
-                                   select activity)
-                foreach(dynamic activity in userActivity) {
-                    var dateTime = (DateTime)activity.ColumnName;
+            //using(var db = new CassandraContext(connectionBuilder)) {
+            //    Console.WriteLine("get user record {0}", userId);
+            //    var activityFamily = db.GetColumnFamily(userActivityCFName);
+            //    var userActivity = (from activity in activityFamily
+            //                       where activity.Key == userId
+            //                       select activity)
+            //    foreach(dynamic activity in userActivity) {
+            //        var dateTime = (DateTime)activity.ColumnName;
 
-                    Console.WriteLine(String.Format("{0:T} : {1} - {2})",
-                        dateTime,
-                        activity.Type,
-                        activity.PageId
-                    ));
-                }
-            }
+            //        Console.WriteLine(String.Format("{0:T} : {1} - {2})",
+            //            dateTime,
+            //            activity.Type,
+            //            activity.PageId
+            //        ));
+            //    }
+            //}
         }
 
         [Test]
