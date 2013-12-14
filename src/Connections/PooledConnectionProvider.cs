@@ -54,6 +54,10 @@ namespace FluentCassandra.Connections
 				if (_freeConnections.Count > 0)
 				{
 					conn = _freeConnections.Dequeue();
+                    if(!conn.IsOpen) {
+                        conn.Dispose();
+                        return CreateConnection();
+                    }
 					_usedConnections.Add(conn);
 				}
 				else if (_freeConnections.Count + _usedConnections.Count >= MaxPoolSize)
