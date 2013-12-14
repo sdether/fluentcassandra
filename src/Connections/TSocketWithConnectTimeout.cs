@@ -62,7 +62,7 @@ namespace FluentCassandra.Connections {
                     return false;
                 }
 
-                return client.Connected;
+                return client.Connected && !(client.Client.Poll(10, SelectMode.SelectRead) && client.Client.Available == 0);
             }
         }
 
