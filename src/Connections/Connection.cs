@@ -1,4 +1,5 @@
-﻿using FluentCassandra.Apache.Cassandra;
+﻿using System.Diagnostics;
+using FluentCassandra.Apache.Cassandra;
 using FluentCassandra.Thrift.Protocol;
 using FluentCassandra.Thrift.Transport;
 using System;
@@ -10,15 +11,17 @@ namespace FluentCassandra.Connections
 	/// </summary>
 	/// <remarks>Borrowed much of the layout from NoRM, I just couldn't resist it was very elegant in its design.</remarks>
 	/// <see href="http://github.com/robconery/NoRM/tree/master/NoRM/Connections/"/>
-	public class Connection : IConnection, IDisposable
-	{
+	public class Connection : IConnection, IDisposable {
+	    private DateTime _lastCheck = DateTime.MinValue;
+	    private bool _isOpen = false;
 		private TTransport _transport;
 		private Cassandra.Client _client;
 		private string _activeKeyspace;
 		private string _activeCqlVersion;
 		private readonly object _lock = new object();
+	    private readonly TimeSpan _checkInterval = TimeSpan.FromSeconds(1);
 
-		/// <summary>
+	    /// <summary>
 		/// 
 		/// </summary>
 		/// <param name="server"></param>
@@ -38,7 +41,7 @@ namespace FluentCassandra.Connections
 			Server = server;
 			ConnectionType = connectionType;
 			BufferSize = bufferSize;
-			InitTransportAndClient();
+		    InitTransportAndClient();
 		}
 
 		/// <summary>
@@ -116,8 +119,13 @@ namespace FluentCassandra.Connections
 				if (_transport == null)
 					return false;
 
+                var now = DateTime.UtcNow;
+                if(_isOpen && _lastCheck.Add(_checkInterval) > now) {
+                    return true;
+                }
+                _lastCheck = now;
 				lock (_lock)
-					return _transport.IsOpen;
+					return _isOpen = _transport.IsOpen;
 			}
 		}
 

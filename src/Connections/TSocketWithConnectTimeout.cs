@@ -21,6 +21,7 @@
  * details.
  */
 
+using System.Diagnostics;
 using FluentCassandra.Thrift.Transport;
 using System;
 using System.Net.Sockets;
