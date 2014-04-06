@@ -21,14 +21,6 @@ namespace FluentCassandra.Connections
 		private readonly object _lock = new object();
 	    private readonly TimeSpan _checkInterval = TimeSpan.FromSeconds(1);
 
-	    /// <summary>
-		/// 
-		/// </summary>
-		/// <param name="server"></param>
-		/// <param name="builder"></param>
-		public Connection(Server server, IConnectionBuilder builder)
-			: this(server, builder.ConnectionType, builder.BufferSize) { }
-
 		/// <summary>
 		/// 
 		/// </summary>

@@ -9,7 +9,7 @@ namespace FluentCassandra.Connections
 		[Fact]
 		public void CanBlackListAndCleanQueueTest()
 		{
-			RoundRobinServerManager target = new RoundRobinServerManager(new ConnectionBuilder("Server=unit-test-1,unit-test-2,unit-test-3"));
+			RoundRobinServerManager target = new RoundRobinServerManager(new ConnectionBuilder("Server=unit-test-1,unit-test-2,unit-test-3").Servers);
 
 			Server srv = new Server("unit-test-4");
 			target.Add(srv);
@@ -47,7 +47,7 @@ namespace FluentCassandra.Connections
 		[Fact]
 		public void HasNextWithMoreThanHalfBlacklistedTest()
 		{
-			RoundRobinServerManager target = new RoundRobinServerManager(new ConnectionBuilder("Server=unit-test-1"));
+			RoundRobinServerManager target = new RoundRobinServerManager(new ConnectionBuilder("Server=unit-test-1").Servers);
 
 			Server srv1 = null;
 			Server srv2 = new Server("unit-test-2");

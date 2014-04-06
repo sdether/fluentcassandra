@@ -1,514 +1,577 @@
-﻿using FluentCassandra.Apache.Cassandra;
+﻿using System.Collections;
+using System.Collections.ObjectModel;
+using FluentCassandra.Apache.Cassandra;
 using System;
 using System.Collections.Generic;
 using System.Text;
+using System.Linq;
+
+namespace FluentCassandra.Connections {
+    public class ConnectionBuilder : FluentCassandra.Connections.IConnectionBuilder {
+
+        private ServerCollection _servers = null;
+        private ObservableServerList _observableServerList;
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="keyspace"></param>
+        /// <param name="host"></param>
+        /// <param name="port"></param>
+        /// <param name="timeout"></param>
+        public ConnectionBuilder(string keyspace, string host, int port = Server.DefaultPort, int connectionTimeout = Server.DefaultTimeout, bool pooling = false, int minPoolSize = 0, int maxPoolSize = 100, int maxRetries = 0, int serverPollingInterval = 30, int connectionLifetime = 0, ConnectionType connectionType = ConnectionType.Framed, int bufferSize = 1024, ConsistencyLevel read = ConsistencyLevel.QUORUM, ConsistencyLevel write = ConsistencyLevel.QUORUM, string cqlVersion = FluentCassandra.Connections.CqlVersion.Edge, bool compressCqlQueries = true, string username = null, string password = null)
+            : this() {
+            Keyspace = keyspace;
+            ConnectionTimeout = TimeSpan.FromSeconds(connectionTimeout);
+            Pooling = pooling;
+            MinPoolSize = minPoolSize;
+            MaxPoolSize = maxPoolSize;
+            MaxRetries = maxRetries;
+            ServerPollingInterval = TimeSpan.FromSeconds(serverPollingInterval);
+            _servers = new ServerCollection(new[] { new Server(host, port) }, ServerPollingInterval);
+            ConnectionLifetime = TimeSpan.FromSeconds(connectionLifetime);
+            ConnectionType = connectionType;
+            BufferSize = bufferSize;
+            ReadConsistency = read;
+            WriteConsistency = write;
+            CqlVersion = cqlVersion;
+            CompressCqlQueries = compressCqlQueries;
+            Username = username;
+            Password = password;
+
+            ConnectionString = GetConnectionString();
+        }
+
+        public ConnectionBuilder(string keyspace, Server server, bool pooling = false, int minPoolSize = 0, int maxPoolSize = 100, int maxRetries = 0, int serverPollingInterval = 30, int connectionLifetime = 0, ConnectionType connectionType = ConnectionType.Framed, int bufferSize = 1024, ConsistencyLevel read = ConsistencyLevel.QUORUM, ConsistencyLevel write = ConsistencyLevel.QUORUM, string cqlVersion = FluentCassandra.Connections.CqlVersion.Edge, bool compressCqlQueries = true, string username = null, string password = null)
+            : this() {
+            Keyspace = keyspace;
+            ConnectionTimeout = TimeSpan.FromSeconds(server.Timeout);
+            Pooling = pooling;
+            MinPoolSize = minPoolSize;
+            MaxPoolSize = maxPoolSize;
+            MaxRetries = maxRetries;
+            ServerPollingInterval = TimeSpan.FromSeconds(serverPollingInterval);
+            _servers = new ServerCollection(new[] { server }, ServerPollingInterval);
+            ConnectionLifetime = TimeSpan.FromSeconds(connectionLifetime);
+            ConnectionType = connectionType;
+            BufferSize = bufferSize;
+            ReadConsistency = read;
+            WriteConsistency = write;
+            CqlVersion = cqlVersion;
+            CompressCqlQueries = compressCqlQueries;
+            Username = username;
+            Password = password;
+
+            ConnectionString = GetConnectionString();
+        }
+        public ConnectionBuilder(string keyspace, IEnumerable<Server> servers, bool pooling = false, int minPoolSize = 0, int maxPoolSize = 100, int maxRetries = 0, int serverPollingInterval = 30, int connectionLifetime = 0, ConnectionType connectionType = ConnectionType.Framed, int bufferSize = 1024, ConsistencyLevel read = ConsistencyLevel.QUORUM, ConsistencyLevel write = ConsistencyLevel.QUORUM, string cqlVersion = FluentCassandra.Connections.CqlVersion.Edge, bool compressCqlQueries = true, string username = null, string password = null)
+            : this() {
+            Keyspace = keyspace;
+            ConnectionTimeout = TimeSpan.FromSeconds(servers.First().Timeout);
+            Pooling = pooling;
+            MinPoolSize = minPoolSize;
+            MaxPoolSize = maxPoolSize;
+            MaxRetries = maxRetries;
+            ServerPollingInterval = TimeSpan.FromSeconds(serverPollingInterval);
+            _servers = new ServerCollection(servers, ServerPollingInterval);
+            ConnectionLifetime = TimeSpan.FromSeconds(connectionLifetime);
+            ConnectionType = connectionType;
+            BufferSize = bufferSize;
+            ReadConsistency = read;
+            WriteConsistency = write;
+            CqlVersion = cqlVersion;
+            CompressCqlQueries = compressCqlQueries;
+            Username = username;
+            Password = password;
+
+            ConnectionString = GetConnectionString();
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="connectionString"></param>
+        public ConnectionBuilder(string connectionString)
+            : this() {
+            InitializeConnectionString(connectionString);
+            ConnectionString = GetConnectionString();
+        }
+
+        private ConnectionBuilder() {
+            _observableServerList = new ObservableServerList(this);
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="connectionString"></param>
+        private void InitializeConnectionString(string connectionString) {
+            string[] connParts = connectionString.Split(';');
+            IDictionary<string, string> pairs = new Dictionary<string, string>(StringComparer.InvariantCultureIgnoreCase);
 
-namespace FluentCassandra.Connections
-{
-	public class ConnectionBuilder : FluentCassandra.Connections.IConnectionBuilder
-	{
-		/// <summary>
-		/// 
-		/// </summary>
-		/// <param name="keyspace"></param>
-		/// <param name="host"></param>
-		/// <param name="port"></param>
-		/// <param name="timeout"></param>
-		public ConnectionBuilder(string keyspace, string host, int port = Server.DefaultPort, int connectionTimeout = Server.DefaultTimeout, bool pooling = false, int minPoolSize = 0, int maxPoolSize = 100, int maxRetries = 0, int serverPollingInterval = 30, int connectionLifetime = 0, ConnectionType connectionType = ConnectionType.Framed, int bufferSize = 1024, ConsistencyLevel read = ConsistencyLevel.QUORUM, ConsistencyLevel write = ConsistencyLevel.QUORUM, string cqlVersion = FluentCassandra.Connections.CqlVersion.Edge , bool compressCqlQueries = true, string username = null, string password = null)
-		{
-			Keyspace = keyspace;
-			Servers = new List<Server>() { new Server(host, port) };
-			ConnectionTimeout = TimeSpan.FromSeconds(connectionTimeout);
-			Pooling = pooling;
-			MinPoolSize = minPoolSize;
-			MaxPoolSize = maxPoolSize;
-			MaxRetries = maxRetries;
-			ServerPollingInterval = TimeSpan.FromSeconds(serverPollingInterval);
-			ConnectionLifetime = TimeSpan.FromSeconds(connectionLifetime);
-			ConnectionType = connectionType;
-			BufferSize = bufferSize;
-			ReadConsistency = read;
-			WriteConsistency = write;
-			CqlVersion = cqlVersion;
-			CompressCqlQueries = compressCqlQueries;
-			Username = username;
-			Password = password;
-
-			ConnectionString = GetConnectionString();
-		}
-
-		public ConnectionBuilder(string keyspace, Server server, bool pooling = false, int minPoolSize = 0, int maxPoolSize = 100, int maxRetries = 0, int serverPollingInterval = 30, int connectionLifetime = 0, ConnectionType connectionType = ConnectionType.Framed, int bufferSize = 1024, ConsistencyLevel read = ConsistencyLevel.QUORUM, ConsistencyLevel write = ConsistencyLevel.QUORUM, string cqlVersion = FluentCassandra.Connections.CqlVersion.Edge, bool compressCqlQueries = true, string username = null, string password = null)
-		{
-			Keyspace = keyspace;
-			Servers = new List<Server>() { server };
-			ConnectionTimeout = TimeSpan.FromSeconds(server.Timeout);
-			Pooling = pooling;
-			MinPoolSize = minPoolSize;
-			MaxPoolSize = maxPoolSize;
-			MaxRetries = maxRetries;
-			ServerPollingInterval = TimeSpan.FromSeconds(serverPollingInterval);
-			ConnectionLifetime = TimeSpan.FromSeconds(connectionLifetime);
-			ConnectionType = connectionType;
-			BufferSize = bufferSize;
-			ReadConsistency = read;
-			WriteConsistency = write;
-			CqlVersion = cqlVersion;
-			CompressCqlQueries = compressCqlQueries;
-			Username = username;
-			Password = password;
-
-			ConnectionString = GetConnectionString();
-		}
-
-		/// <summary>
-		/// 
-		/// </summary>
-		/// <param name="connectionString"></param>
-		public ConnectionBuilder(string connectionString)
-		{
-			InitializeConnectionString(connectionString);
-			ConnectionString = GetConnectionString();
-		}
-
-		/// <summary>
-		/// 
-		/// </summary>
-		/// <param name="connectionString"></param>
-		private void InitializeConnectionString(string connectionString)
-		{
-			string[] connParts = connectionString.Split(';');
-			IDictionary<string, string> pairs = new Dictionary<string, string>(StringComparer.InvariantCultureIgnoreCase);
-
-			foreach (string part in connParts)
-			{
-				string[] nameValue = part.Split(new[] { '=' }, 2);
-
-				if (nameValue.Length != 2)
-					continue;
-
-				pairs.Add(nameValue[0].Trim(), nameValue[1].Trim());
-			}
-
-			#region Keyspace
-
-			if (pairs.ContainsKey("Keyspace"))
-			{
-				Keyspace = pairs["Keyspace"];
-			}
-
-			#endregion
-
-			#region ConnectionTimeout
-
-			if (!pairs.ContainsKey("Connection Timeout")) {
-				ConnectionTimeout = TimeSpan.Zero;
-			} else {
-				int connectionTimeout;
+            foreach(string part in connParts) {
+                string[] nameValue = part.Split(new[] { '=' }, 2);
 
-				if (!Int32.TryParse(pairs["Connection Timeout"], out connectionTimeout))
-					throw new CassandraException("Connection Timeout is not valid.");
+                if(nameValue.Length != 2)
+                    continue;
 
-				if (connectionTimeout < 0)
-					connectionTimeout = 0;
+                pairs.Add(nameValue[0].Trim(), nameValue[1].Trim());
+            }
 
-				ConnectionTimeout = TimeSpan.FromSeconds(connectionTimeout);
-			}
+            #region Keyspace
 
-			#endregion
+            if(pairs.ContainsKey("Keyspace")) {
+                Keyspace = pairs["Keyspace"];
+            }
 
-			#region Pooling
+            #endregion
 
-			if (!pairs.ContainsKey("Pooling"))
-			{
-				Pooling = false;
-			}
-			else
-			{
-				bool pooling;
+            #region ConnectionTimeout
 
-				if (!Boolean.TryParse(pairs["Pooling"], out pooling))
-					pooling = false;
+            if(!pairs.ContainsKey("Connection Timeout")) {
+                ConnectionTimeout = TimeSpan.Zero;
+            } else {
+                int connectionTimeout;
 
-				Pooling = pooling;
-			}
+                if(!Int32.TryParse(pairs["Connection Timeout"], out connectionTimeout))
+                    throw new CassandraException("Connection Timeout is not valid.");
 
-			#endregion
+                if(connectionTimeout < 0)
+                    connectionTimeout = 0;
 
-			#region MinPoolSize
+                ConnectionTimeout = TimeSpan.FromSeconds(connectionTimeout);
+            }
 
-			if (!pairs.ContainsKey("Min Pool Size"))
-			{
-				MinPoolSize = 0;
-			}
-			else
-			{
-				int minPoolSize;
+            #endregion
 
-				if (!Int32.TryParse(pairs["Min Pool Size"], out minPoolSize))
-					minPoolSize = 0;
+            #region Pooling
 
-				if (minPoolSize < 0)
-					minPoolSize = 0;
+            if(!pairs.ContainsKey("Pooling")) {
+                Pooling = false;
+            } else {
+                bool pooling;
 
-				MinPoolSize = minPoolSize;
-			}
+                if(!Boolean.TryParse(pairs["Pooling"], out pooling))
+                    pooling = false;
 
-			#endregion
+                Pooling = pooling;
+            }
 
-			#region MaxPoolSize
+            #endregion
 
-			if (!pairs.ContainsKey("Max Pool Size"))
-			{
-				MaxPoolSize = 100;
-			}
-			else
-			{
-				int maxPoolSize;
+            #region MinPoolSize
 
-				if (!Int32.TryParse(pairs["Max Pool Size"], out maxPoolSize))
-					maxPoolSize = 100;
+            if(!pairs.ContainsKey("Min Pool Size")) {
+                MinPoolSize = 0;
+            } else {
+                int minPoolSize;
 
-				if (maxPoolSize < 0)
-					maxPoolSize = 100;
+                if(!Int32.TryParse(pairs["Min Pool Size"], out minPoolSize))
+                    minPoolSize = 0;
 
-				MaxPoolSize = maxPoolSize;
-			}
+                if(minPoolSize < 0)
+                    minPoolSize = 0;
 
-			#endregion
+                MinPoolSize = minPoolSize;
+            }
 
-			#region MaxRetries
+            #endregion
 
-			if (pairs.ContainsKey("Max Retries"))
-			{
-				int maxRetries;
+            #region MaxPoolSize
 
-				if (!Int32.TryParse(pairs["Max Retries"], out maxRetries))
-					maxRetries = 0;
+            if(!pairs.ContainsKey("Max Pool Size")) {
+                MaxPoolSize = 100;
+            } else {
+                int maxPoolSize;
 
-				if (maxRetries < 0)
-					maxRetries = 0;
+                if(!Int32.TryParse(pairs["Max Pool Size"], out maxPoolSize))
+                    maxPoolSize = 100;
 
-				MaxRetries = maxRetries;
-			}
-		   
-			#endregion
+                if(maxPoolSize < 0)
+                    maxPoolSize = 100;
 
-			#region ServerRecoveryInterval
+                MaxPoolSize = maxPoolSize;
+            }
 
-			if (!pairs.ContainsKey("Server Polling Interval")) 
-			{
-				ServerPollingInterval = TimeSpan.FromSeconds(30);
-			} 
-			else 
-			{
-				int serverPollingInterval;
+            #endregion
 
-				if (!Int32.TryParse(pairs["Server Polling Interval"], out serverPollingInterval))
-					serverPollingInterval = 0;
+            #region MaxRetries
 
-				if (serverPollingInterval < 0)
-					serverPollingInterval = 0;
+            if(pairs.ContainsKey("Max Retries")) {
+                int maxRetries;
 
-				ServerPollingInterval = TimeSpan.FromSeconds(serverPollingInterval);
-			}
+                if(!Int32.TryParse(pairs["Max Retries"], out maxRetries))
+                    maxRetries = 0;
 
-			#endregion
+                if(maxRetries < 0)
+                    maxRetries = 0;
 
-			#region ConnectionLifetime
+                MaxRetries = maxRetries;
+            }
 
-			if (!pairs.ContainsKey("Connection Lifetime"))
-			{
-				ConnectionLifetime = TimeSpan.Zero;
-			}
-			else
-			{
-				int lifetime;
+            #endregion
 
-				if (!Int32.TryParse(pairs["Connection Lifetime"], out lifetime))
-					lifetime = 0;
+            #region ServerRecoveryInterval
 
-				if (lifetime < 0)
-					lifetime = 0;
+            if(!pairs.ContainsKey("Server Polling Interval")) {
+                ServerPollingInterval = TimeSpan.FromSeconds(30);
+            } else {
+                int serverPollingInterval;
 
-				ConnectionLifetime = TimeSpan.FromSeconds(lifetime);
-			}
+                if(!Int32.TryParse(pairs["Server Polling Interval"], out serverPollingInterval))
+                    serverPollingInterval = 0;
 
-			#endregion
+                if(serverPollingInterval < 0)
+                    serverPollingInterval = 0;
 
-			#region ConnectionType
+                ServerPollingInterval = TimeSpan.FromSeconds(serverPollingInterval);
+            }
 
-			if (!pairs.ContainsKey("Connection Type")) {
-				ConnectionType = ConnectionType.Framed;
-			} else {
-				ConnectionType type;
+            #endregion
 
-				if (!Enum.TryParse(pairs["Connection Type"], out type))
-					ConnectionType = ConnectionType.Framed;
+            #region ConnectionLifetime
 
-				ConnectionType = type;
-			}
+            if(!pairs.ContainsKey("Connection Lifetime")) {
+                ConnectionLifetime = TimeSpan.Zero;
+            } else {
+                int lifetime;
 
-			#endregion
+                if(!Int32.TryParse(pairs["Connection Lifetime"], out lifetime))
+                    lifetime = 0;
 
-			#region BufferSize
+                if(lifetime < 0)
+                    lifetime = 0;
 
-			if (!pairs.ContainsKey("Buffer Size"))
-			{
-				BufferSize = 1024;
-			}
-			else
-			{
-				int bufferSize;
+                ConnectionLifetime = TimeSpan.FromSeconds(lifetime);
+            }
 
-				if (!Int32.TryParse(pairs["Buffer Size"], out bufferSize))
-					bufferSize = 1024;
+            #endregion
 
-				if (bufferSize < 0)
-					bufferSize = 1024;
+            #region ConnectionType
 
-				BufferSize = bufferSize;
-			}
+            if(!pairs.ContainsKey("Connection Type")) {
+                ConnectionType = ConnectionType.Framed;
+            } else {
+                ConnectionType type;
 
-			#endregion
+                if(!Enum.TryParse(pairs["Connection Type"], out type))
+                    ConnectionType = ConnectionType.Framed;
 
-			#region Read
+                ConnectionType = type;
+            }
 
-			if (!pairs.ContainsKey("Read"))
-			{
-				ReadConsistency = ConsistencyLevel.QUORUM;
-			}
-			else
-			{
-				ConsistencyLevel read;
+            #endregion
 
-				if (!Enum.TryParse(pairs["Read"], out read))
-					ReadConsistency = ConsistencyLevel.QUORUM;
+            #region BufferSize
 
-				ReadConsistency = read;
-			}
+            if(!pairs.ContainsKey("Buffer Size")) {
+                BufferSize = 1024;
+            } else {
+                int bufferSize;
 
-			#endregion
+                if(!Int32.TryParse(pairs["Buffer Size"], out bufferSize))
+                    bufferSize = 1024;
 
-			#region Write
+                if(bufferSize < 0)
+                    bufferSize = 1024;
 
-			if (!pairs.ContainsKey("Write"))
-			{
-				WriteConsistency = ConsistencyLevel.QUORUM;
-			}
-			else
-			{
-				ConsistencyLevel write;
+                BufferSize = bufferSize;
+            }
 
-				if (!Enum.TryParse(pairs["Write"], out write))
-					WriteConsistency = ConsistencyLevel.QUORUM;
+            #endregion
 
-				WriteConsistency = write;
-			}
+            #region Read
 
-			#endregion
+            if(!pairs.ContainsKey("Read")) {
+                ReadConsistency = ConsistencyLevel.QUORUM;
+            } else {
+                ConsistencyLevel read;
 
-			#region CqlVersion
+                if(!Enum.TryParse(pairs["Read"], out read))
+                    ReadConsistency = ConsistencyLevel.QUORUM;
 
-			if (!pairs.ContainsKey("CQL Version"))
-			{
-				CqlVersion = FluentCassandra.Connections.CqlVersion.Edge;
-			}
-			else
-			{
-				CqlVersion = pairs["CQL Version"];
-			}
+                ReadConsistency = read;
+            }
 
-			#endregion
+            #endregion
 
-			#region CompressCqlQueries
+            #region Write
 
-			if (!pairs.ContainsKey("Compress CQL Queries"))
-			{
-				CompressCqlQueries = true;
-			}
-			else
-			{
-				string compressCqlQueriesValue = pairs["Compress CQL Queries"];
+            if(!pairs.ContainsKey("Write")) {
+                WriteConsistency = ConsistencyLevel.QUORUM;
+            } else {
+                ConsistencyLevel write;
 
-				// YES or TRUE is a positive response everything else is a negative response
-				CompressCqlQueries = String.Equals("yes", compressCqlQueriesValue, StringComparison.OrdinalIgnoreCase) || String.Equals("true", compressCqlQueriesValue, StringComparison.OrdinalIgnoreCase);
-			}
+                if(!Enum.TryParse(pairs["Write"], out write))
+                    WriteConsistency = ConsistencyLevel.QUORUM;
 
-			#endregion
+                WriteConsistency = write;
+            }
 
-			#region Username
+            #endregion
 
-			if (pairs.ContainsKey("Username"))
-			{
-				Username = pairs["Username"];
-			}
+            #region CqlVersion
 
-			#endregion
+            if(!pairs.ContainsKey("CQL Version")) {
+                CqlVersion = FluentCassandra.Connections.CqlVersion.Edge;
+            } else {
+                CqlVersion = pairs["CQL Version"];
+            }
 
-			#region Password
+            #endregion
 
-			if (pairs.ContainsKey("Password"))
-			{
-				Password = pairs["Password"];
-			}
+            #region CompressCqlQueries
 
-			#endregion
+            if(!pairs.ContainsKey("Compress CQL Queries")) {
+                CompressCqlQueries = true;
+            } else {
+                string compressCqlQueriesValue = pairs["Compress CQL Queries"];
 
-			// This must be last because it uses fields from above
-			#region Server
+                // YES or TRUE is a positive response everything else is a negative response
+                CompressCqlQueries = String.Equals("yes", compressCqlQueriesValue, StringComparison.OrdinalIgnoreCase) || String.Equals("true", compressCqlQueriesValue, StringComparison.OrdinalIgnoreCase);
+            }
 
-			Servers = new List<Server>();
+            #endregion
 
-			if (!pairs.ContainsKey("Server"))
-			{
-				Servers.Add(new Server());
-			}
-			else
-			{
-				string[] servers = pairs["Server"].Split(',');
-				foreach (var server in servers)
-				{
-					string[] serverParts = server.Split(':');
-					string host = serverParts[0].Trim();
+            #region Username
 
-					if (serverParts.Length == 2)
-					{
-						int port;
-						if (Int32.TryParse(serverParts[1].Trim(), out port))
-							Servers.Add(new Server(host: host, port: port, timeout: ConnectionTimeout.Seconds));
-						else
-							Servers.Add(new Server(host: host, timeout: ConnectionTimeout.Seconds));
-					}
-					else
-						Servers.Add(new Server(host: host, timeout: ConnectionTimeout.Seconds));
-				}
-			}
+            if(pairs.ContainsKey("Username")) {
+                Username = pairs["Username"];
+            }
 
-			#endregion
-		}
+            #endregion
 
-		private string GetConnectionString()
-		{
-			StringBuilder b = new StringBuilder();
-			string format = "{0}={1};";
+            #region Password
 
-			b.AppendFormat(format, "Keyspace", Keyspace);
-			b.AppendFormat(format, "Server", String.Join(",", Servers));
+            if(pairs.ContainsKey("Password")) {
+                Password = pairs["Password"];
+            }
 
-			b.AppendFormat(format, "Pooling", Pooling);
-			b.AppendFormat(format, "Min Pool Size", MinPoolSize);
-			b.AppendFormat(format, "Max Pool Size", MaxPoolSize);
-			b.AppendFormat(format, "Max Retries", MaxRetries);
-			b.AppendFormat(format, "Connection Timeout", Convert.ToInt32(ConnectionTimeout.TotalSeconds));
-			b.AppendFormat(format, "Connection Lifetime", Convert.ToInt32(ConnectionLifetime.TotalSeconds));
-			b.AppendFormat(format, "Server Recovery Interval", Convert.ToInt32(ServerPollingInterval.TotalSeconds));
-			b.AppendFormat(format, "Connection Type", ConnectionType);
+            #endregion
 
-			b.AppendFormat(format, "Buffer Size", BufferSize);
-			b.AppendFormat(format, "Read", ReadConsistency);
-			b.AppendFormat(format, "Write", WriteConsistency);
+            // This must be last because it uses fields from above
+            #region Server
 
-			b.AppendFormat(format, "CQL Version", CqlVersion);
-			b.AppendFormat(format, "Compress CQL Queries", CompressCqlQueries);
+            var servers = new List<Server>();
 
-			b.AppendFormat(format, "Username", Username);
-			b.AppendFormat(format, "Password", Password);
-
-			return b.ToString();
-		}
-
-		/// <summary>
-		/// 
-		/// </summary>
-		public string Keyspace { get; private set; }
-
-		/// <summary>
-		/// The length of time (in seconds) to wait for a connection to the server before terminating the attempt and generating an error.
-		/// </summary>
-		public TimeSpan ConnectionTimeout { get; private set; }
-
-		/// <summary>
-		/// When true, the Connection object is drawn from the appropriate pool, or if necessary, is created and added to the appropriate pool. Recognized values are true, false, yes, and no.
-		/// </summary>
-		public bool Pooling { get; private set; }
-
-		/// <summary>
-		/// (Not Currently Implimented) The minimum number of connections allowed in the pool.
-		/// </summary>
-		public int MinPoolSize { get; private set; }
-
-		/// <summary>
-		/// The maximum number of connections allowed in the pool.
-		/// </summary>
-		public int MaxPoolSize { get; private set; }
-
-		/// <summary>
-		/// The maximum number of execution retry attempts if there is an error during the execution of an operation and the exception is a type that can be retried.
-		/// </summary>
-		public int MaxRetries { get; private set; }
-
-		/// <summary>
-		/// When a connection is returned to the pool, its creation time is compared with the current time, and the connection is destroyed if that time span (in seconds) exceeds the value specified by Connection Lifetime. This is useful in clustered configurations to force load balancing between a running server and a server just brought online. A value of zero (0) causes pooled connections to have the maximum connection timeout.
-		/// </summary>
-		public TimeSpan ConnectionLifetime { get; private set; }
-
-		/// <summary>
-		/// 
-		/// </summary>
-		public ConnectionType ConnectionType { get; private set; }
-
-		/// <summary>
-		/// 
-		/// </summary>
-		public TimeSpan ServerPollingInterval { get; private set; }
-		/// <summary>
-		/// 
-		/// </summary>
-		public int BufferSize { get; private set; }
-
-		/// <summary>
-		/// 
-		/// </summary>
-		public ConsistencyLevel ReadConsistency { get; private set; }
-
-		/// <summary>
-		/// 
-		/// </summary>
-		public ConsistencyLevel WriteConsistency { get; private set; }
-
-		/// <summary>
-		/// 
-		/// </summary>
-		public IList<Server> Servers { get; private set; }
-
-		/// <summary>
-		/// 
-		/// </summary>
-		public string CqlVersion { get; private set; }
-
-		/// <summary>
-		/// 
-		/// </summary>
-		public bool CompressCqlQueries { get; private set; }
-
-		/// <summary>
-		/// 
-		/// </summary>
-		public string Username { get; private set; }
-
-		/// <summary>
-		/// 
-		/// </summary>
-		public string Password { get; private set; }
-
-		/// <summary>
-		/// 
-		/// </summary>
-		public string ConnectionString { get; private set; }
-
-		/// <summary>
-		/// A unique identifier for the connection builder.
-		/// </summary>
-		public string Uuid { get { return ConnectionString; } }
-	}
+            if(!pairs.ContainsKey("Server")) {
+                Servers.Add(new Server());
+            } else {
+                string[] serverStrings = pairs["Server"].Split(',');
+                foreach(var server in serverStrings) {
+                    string[] serverParts = server.Split(':');
+                    string host = serverParts[0].Trim();
+
+                    if(serverParts.Length == 2) {
+                        int port;
+                        if(Int32.TryParse(serverParts[1].Trim(), out port))
+                            servers.Add(new Server(host: host, port: port, timeout: ConnectionTimeout.Seconds));
+                        else
+                            servers.Add(new Server(host: host, timeout: ConnectionTimeout.Seconds));
+                    } else
+                        servers.Add(new Server(host: host, timeout: ConnectionTimeout.Seconds));
+                }
+            }
+            _servers = new ServerCollection(servers, ServerPollingInterval);
+            #endregion
+        }
+
+        private string GetConnectionString() {
+            StringBuilder b = new StringBuilder();
+            string format = "{0}={1};";
+
+            b.AppendFormat(format, "Keyspace", Keyspace);
+            b.AppendFormat(format, "Server", String.Join(",", Servers));
+
+            b.AppendFormat(format, "Pooling", Pooling);
+            b.AppendFormat(format, "Min Pool Size", MinPoolSize);
+            b.AppendFormat(format, "Max Pool Size", MaxPoolSize);
+            b.AppendFormat(format, "Max Retries", MaxRetries);
+            b.AppendFormat(format, "Connection Timeout", Convert.ToInt32(ConnectionTimeout.TotalSeconds));
+            b.AppendFormat(format, "Connection Lifetime", Convert.ToInt32(ConnectionLifetime.TotalSeconds));
+            b.AppendFormat(format, "Server Recovery Interval", Convert.ToInt32(ServerPollingInterval.TotalSeconds));
+            b.AppendFormat(format, "Connection Type", ConnectionType);
+
+            b.AppendFormat(format, "Buffer Size", BufferSize);
+            b.AppendFormat(format, "Read", ReadConsistency);
+            b.AppendFormat(format, "Write", WriteConsistency);
+
+            b.AppendFormat(format, "CQL Version", CqlVersion);
+            b.AppendFormat(format, "Compress CQL Queries", CompressCqlQueries);
+
+            b.AppendFormat(format, "Username", Username);
+            b.AppendFormat(format, "Password", Password);
+
+            return b.ToString();
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        public string Keyspace { get; private set; }
+
+        /// <summary>
+        /// The length of time (in seconds) to wait for a connection to the server before terminating the attempt and generating an error.
+        /// </summary>
+        public TimeSpan ConnectionTimeout { get; private set; }
+
+        /// <summary>
+        /// When true, the Connection object is drawn from the appropriate pool, or if necessary, is created and added to the appropriate pool. Recognized values are true, false, yes, and no.
+        /// </summary>
+        public bool Pooling { get; private set; }
+
+        /// <summary>
+        /// (Not Currently Implimented) The minimum number of connections allowed in the pool.
+        /// </summary>
+        public int MinPoolSize { get; private set; }
+
+        /// <summary>
+        /// The maximum number of connections allowed in the pool.
+        /// </summary>
+        public int MaxPoolSize { get; private set; }
+
+        /// <summary>
+        /// The maximum number of execution retry attempts if there is an error during the execution of an operation and the exception is a type that can be retried.
+        /// </summary>
+        public int MaxRetries { get; private set; }
+
+        /// <summary>
+        /// When a connection is returned to the pool, its creation time is compared with the current time, and the connection is destroyed if that time span (in seconds) exceeds the value specified by Connection Lifetime. This is useful in clustered configurations to force load balancing between a running server and a server just brought online. A value of zero (0) causes pooled connections to have the maximum connection timeout.
+        /// </summary>
+        public TimeSpan ConnectionLifetime { get; private set; }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        public ConnectionType ConnectionType { get; private set; }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        public TimeSpan ServerPollingInterval { get; private set; }
+        /// <summary>
+        /// 
+        /// </summary>
+        public int BufferSize { get; private set; }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        public ConsistencyLevel ReadConsistency { get; private set; }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        public ConsistencyLevel WriteConsistency { get; private set; }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        public IList<Server> Servers { get { return _observableServerList; } }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        public string CqlVersion { get; private set; }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        public bool CompressCqlQueries { get; private set; }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        public string Username { get; private set; }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        public string Password { get; private set; }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        public string ConnectionString { get; private set; }
+
+        /// <summary>
+        /// A unique identifier for the connection builder.
+        /// </summary>
+        public string Uuid { get { return ConnectionString; } }
+
+        public ServerCollection GetServerCollection() {
+            return _servers;
+        }
+
+        private class ObservableServerList : IList<Server> {
+            private readonly ConnectionBuilder _this;
+
+            public ObservableServerList(ConnectionBuilder @this) {
+                _this = @this;
+            }
+
+            public IEnumerator<Server> GetEnumerator() {
+                return _this._servers.GetEnumerator();
+            }
+
+            IEnumerator IEnumerable.GetEnumerator() {
+                return GetEnumerator();
+            }
+
+            public void Add(Server item) {
+                _this._servers = new ServerCollection(_this._servers.Concat(new[] { item }), _this.ServerPollingInterval);
+            }
+
+            public void Clear() {
+                _this._servers = new ServerCollection(new Server[0], _this.ServerPollingInterval);
+            }
+
+            public bool Contains(Server item) {
+                return _this._servers.Contains(item);
+            }
+
+            public void CopyTo(Server[] array, int arrayIndex) {
+                var servers = _this._servers.ToArray();
+                servers.CopyTo(array, arrayIndex);
+                _this._servers = new ServerCollection(servers, _this.ServerPollingInterval);
+            }
+
+            public bool Remove(Server item) {
+                var servers = _this._servers.ToList();
+                var removed = servers.Remove(item);
+                if(!removed) {
+                    return false;
+                }
+                _this._servers = new ServerCollection(servers, _this.ServerPollingInterval);
+                return true;
+            }
+
+            public int Count { get { return _this._servers.Count; } }
+            public bool IsReadOnly { get { return false; } }
+            public int IndexOf(Server item) {
+                return Array.IndexOf(_this._servers.ToArray(), item);
+            }
+
+            public void Insert(int index, Server item) {
+                var servers = _this._servers.ToList();
+                servers.Insert(index, item);
+                _this._servers = new ServerCollection(servers, _this.ServerPollingInterval);
+            }
+
+            public void RemoveAt(int index) {
+                var servers = _this._servers.ToList();
+                servers.RemoveAt(index);
+                _this._servers = new ServerCollection(servers, _this.ServerPollingInterval);
+            }
+
+            public Server this[int index] {
+                get { return _this._servers[index]; }
+                set {
+                    var servers = _this._servers.ToList();
+                    servers[index] = value;
+                    _this._servers = new ServerCollection(servers, _this.ServerPollingInterval);
+                }
+            }
+        }
+    }
 }

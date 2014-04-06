@@ -11,19 +11,20 @@ namespace FluentCassandra.Connections
 		private readonly Queue<IConnection> _freeConnections = new Queue<IConnection>();
 		private readonly HashSet<IConnection> _usedConnections = new HashSet<IConnection>();
 		private readonly Timer _maintenanceTimer;
+	    private bool _isDisposed;
 
 		/// <summary>
 		/// 
 		/// </summary>
 		/// <param name="builder"></param>
-		public PooledConnectionProvider(IConnectionBuilder builder)
-			: base(builder)
+		public PooledConnectionProvider(IServerManager serverManager, IConnectionBuilder builder)
+            : base(serverManager, builder)
 		{
 			MinPoolSize = builder.MinPoolSize;
 			MaxPoolSize = builder.MaxPoolSize;
 			ConnectionLifetime = builder.ConnectionLifetime;
 
-			_maintenanceTimer = new Timer(o => Cleanup(), null, 30000L, 30000L);
+			_maintenanceTimer = new Timer(o => CheckFreeConnectionsAlive(), null, 30000L, 30000L);
 		}
 
 		/// <summary>
@@ -41,12 +42,17 @@ namespace FluentCassandra.Connections
 		/// </summary>
 		public TimeSpan ConnectionLifetime { get; private set; }
 
+
 		/// <summary>
 		/// 
 		/// </summary>
 		/// <returns></returns>
-		public override IConnection CreateConnection()
+		protected override IConnection CreateConnection(Server server)
 		{
+            if(_isDisposed) {
+                throw new ObjectDisposedException("PooledConnectionProvider", "PooledConnectionProvider is already disposed");
+            }
+
 			IConnection conn = null;
 
 			lock (_lock)
@@ -56,7 +62,9 @@ namespace FluentCassandra.Connections
 					conn = _freeConnections.Dequeue();
                     if(!conn.IsOpen) {
                         conn.Dispose();
-                        return CreateConnection();
+
+                        // calling Open (rather than CreateConnection), so a new server may be picked up from the server manager
+                        return Open();
                     }
 					_usedConnections.Add(conn);
 				}
@@ -65,11 +73,12 @@ namespace FluentCassandra.Connections
 					if (!Monitor.Wait(_lock, TimeSpan.FromSeconds(30)))
 						throw new TimeoutException("No connection could be made, timed out trying to acquirer a connection from the connection pool.");
 
-					return CreateConnection();
+                    // calling Open (rather than CreateConnection), so a new server may be picked up from the server manager
+                    return Open();
 				}
 				else
 				{
-					conn = base.CreateConnection();
+					conn = base.CreateConnection(server);
 					_usedConnections.Add(conn);
 				}
 			}
@@ -79,16 +88,19 @@ namespace FluentCassandra.Connections
 
 		public override void ErrorOccurred(IConnection connection, Exception exc = null)
 		{
-			lock (_lock)
+            if(_isDisposed) {
+                return;
+            }
+            lock(_lock)
 			{
-				_usedConnections.RemoveWhere(x => x.Server == connection.Server);
-				Servers.ErrorOccurred(connection.Server, exc);
+				_usedConnections.RemoveWhere(x => x.Server.Equals(connection.Server));
+				_serverManager.ErrorOccurred(connection.Server, exc);
 	
 				var currentFreeConnections = _freeConnections.ToArray();
 				_freeConnections.Clear();
 
 				foreach (var conn in currentFreeConnections)
-					if (conn.Server != connection.Server)
+					if (!conn.Server.Equals(connection.Server))
 						_freeConnections.Enqueue(conn);
 			}
 		}
@@ -98,25 +110,18 @@ namespace FluentCassandra.Connections
 		/// </summary>
 		/// <param name="connection"></param>
 		/// <returns></returns>
-		public override bool Close(IConnection connection)
+		public override void Close(IConnection connection)
 		{
-			lock (_lock)
+            if(_isDisposed) {
+                return;
+            }
+            lock(_lock)
 			{
 				_usedConnections.Remove(connection);
 
 				if (IsAlive(connection))
 					_freeConnections.Enqueue(connection);
 			}
-
-			return true;
-		}
-
-		/// <summary>
-		/// Cleans up this instance.
-		/// </summary>
-		public void Cleanup()
-		{
-			CheckFreeConnectionsAlive();
 		}
 
 		/// <summary>
@@ -126,7 +131,10 @@ namespace FluentCassandra.Connections
 		/// <returns>True if alive; otherwise false.</returns>
 		private bool IsAlive(IConnection connection)
 		{
-			if (ConnectionLifetime > TimeSpan.Zero && connection.Created.Add(ConnectionLifetime) < DateTime.UtcNow)
+            if(_isDisposed) {
+                return false;
+            }
+            if(ConnectionLifetime > TimeSpan.Zero && connection.Created.Add(ConnectionLifetime) < DateTime.UtcNow)
 				return false;
 
 			return connection.IsOpen;
@@ -137,7 +145,10 @@ namespace FluentCassandra.Connections
 		/// </summary>
 		private void CheckFreeConnectionsAlive()
 		{
-			lock (_lock)
+            if(_isDisposed) {
+                return;
+            }
+            lock(_lock)
 			{
 				var freeConnections = _freeConnections.ToArray();
 				_freeConnections.Clear();
@@ -151,5 +162,23 @@ namespace FluentCassandra.Connections
 				}
 			}
 		}
+
+        public override void Dispose() {
+            if(_isDisposed) {
+                return;
+            }
+            _isDisposed = true;
+            lock(_lock) {
+                foreach(var conn in _usedConnections) {
+                    conn.Close();
+                }
+                _usedConnections.Clear();
+                foreach(var conn in _freeConnections) {
+                    conn.Close();
+                }
+                _freeConnections.Clear();
+            }
+            _maintenanceTimer.Dispose();
+        }
 	}
 }

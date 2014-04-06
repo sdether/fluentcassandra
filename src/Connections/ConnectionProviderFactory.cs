@@ -1,33 +1,73 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
+using System.Threading;
 
-namespace FluentCassandra.Connections
-{
-	public static class ConnectionProviderFactory
-	{
-		private static readonly object Lock = new object();
-		private static volatile IDictionary<string, IConnectionProvider> Providers = new Dictionary<string, IConnectionProvider>();
+namespace FluentCassandra.Connections {
+    public class ConnectionProviderFactory {
 
-		public static IConnectionProvider Get(IConnectionBuilder connectionBuilder)
-		{
-			lock (Lock) {
-				IConnectionProvider provider;
-	
-				if (!Providers.TryGetValue(connectionBuilder.Uuid, out provider)) {
-					provider = CreateProvider(connectionBuilder);
-					Providers.Add(connectionBuilder.Uuid, provider);
-				}
+        private static readonly object _lock = new object();
+        private static readonly IServerManagerFactory _serverManagerFactory;
+        private static readonly Dictionary<int, ReferenceCountingProviderWrapper> _poolingProviders = new Dictionary<int, ReferenceCountingProviderWrapper>();
+        private static readonly Dictionary<int, ReferenceCountingProviderWrapper> _singleProviders = new Dictionary<int, ReferenceCountingProviderWrapper>();
 
-				return provider;
-			}
-		}
+        public static IConnectionProvider Get(IConnectionBuilder builder) {
+            lock(_lock) {
+                ReferenceCountingProviderWrapper provider;
+                var hashcode = builder.Servers.GetHashCode();
+                if(builder.Pooling) {
+                    if(_poolingProviders.TryGetValue(hashcode, out provider) && provider.Active) {
+                        provider.IncrementReferences();
+                    } else {
+                        provider = new ReferenceCountingProviderWrapper(new PooledConnectionProvider(_serverManagerFactory.Get(builder.GetServerCollection()), builder));
+                        _poolingProviders[hashcode] = provider;
+                    }
+                } else {
+                    if(_singleProviders.TryGetValue(hashcode, out provider) && provider.Active) {
+                        provider.IncrementReferences();
+                    } else {
+                        provider = new ReferenceCountingProviderWrapper(new PooledConnectionProvider(_serverManagerFactory.Get(builder.GetServerCollection()), builder));
+                        _singleProviders[hashcode] = provider;
+                    }
+                }
+                return provider;
+            }
+        }
 
-		private static IConnectionProvider CreateProvider(IConnectionBuilder builder)
-		{
-			if (builder.Pooling) {
-				return new PooledConnectionProvider(builder);
-			} else {
-				return new NormalConnectionProvider(builder);
-			}
-		}
-	}
+        private class ReferenceCountingProviderWrapper : IConnectionProvider {
+            private readonly IConnectionProvider _connectionProvider;
+            private int _references;
+
+            public ReferenceCountingProviderWrapper(IConnectionProvider connectionProvider) {
+                _connectionProvider = connectionProvider;
+                _references = 1;
+            }
+
+            public bool Active {
+                get { return _references > 0; }
+            }
+
+            public void IncrementReferences() {
+                Interlocked.Increment(ref _references);
+            }
+
+            public void Dispose() {
+                var references = Interlocked.Decrement(ref _references);
+                if(_references <= 0) {
+                    _connectionProvider.Dispose();
+                }
+            }
+
+            public IConnection Open() {
+                return _connectionProvider.Open();
+            }
+
+            public void ErrorOccurred(IConnection connection, Exception exc = null) {
+                _connectionProvider.ErrorOccurred(connection, exc);
+            }
+
+            public void Close(IConnection connection) {
+                _connectionProvider.Close(connection);
+            }
+        }
+    }
 }

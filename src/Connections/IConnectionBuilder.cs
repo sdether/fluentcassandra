@@ -29,5 +29,7 @@ namespace FluentCassandra.Connections
 		string Password { get; }
 
 		string Uuid { get; }
+
+	    ServerCollection GetServerCollection();
 	}
 }

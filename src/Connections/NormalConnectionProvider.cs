@@ -9,20 +9,23 @@ namespace FluentCassandra.Connections
 		/// 
 		/// </summary>
 		/// <param name="builder"></param>
-		public NormalConnectionProvider(IConnectionBuilder builder)
-			: base(builder)
+		public NormalConnectionProvider(IServerManager serverManager, IConnectionBuilder builder)
+            : base(serverManager)
 		{
 			if (builder.Servers.Count > 1 && builder.ConnectionTimeout == TimeSpan.Zero)
 				throw new CassandraException("You must specify a timeout when using multiple servers.");
 
 			ConnectionTimeout = builder.ConnectionTimeout;
+		    ConnectionType = builder.ConnectionType;
+		    BufferSize = builder.BufferSize;
 		}
 
 		/// <summary>
 		/// 
 		/// </summary>
 		public TimeSpan ConnectionTimeout { get; private set; }
-
+        public ConnectionType ConnectionType { get; private set; }
+        public int BufferSize { get; private set; }
 		/// <summary>
 		/// 
 		/// </summary>
@@ -30,18 +33,17 @@ namespace FluentCassandra.Connections
 		public override IConnection Open()
 		{
 			IConnection conn = null;
-
-			while (Servers.HasNext)
+		    Server server = null;
+			while ((server = _serverManager.GetServer()) != null)
 			{
-				try
-				{
-					conn = CreateConnection();
+				try {
+				    conn = CreateConnection(server);
 					conn.Open();
 					break;
 				}
 				catch (SocketException exc)
 				{
-					Servers.ErrorOccurred(conn.Server, exc);
+					_serverManager.ErrorOccurred(conn.Server, exc);
 					Close(conn);
 					conn = null;
 				}
@@ -53,25 +55,14 @@ namespace FluentCassandra.Connections
 			return conn;
 		}
 
-		public override void ErrorOccurred(IConnection connection, Exception exc = null)
+	    protected virtual IConnection CreateConnection(Server server) {
+	        return new Connection(server, ConnectionType, BufferSize);
+	    }
+
+	    public override void ErrorOccurred(IConnection connection, Exception exc = null)
 		{
 			try { Close(connection); } catch { }
-			Servers.ErrorOccurred(connection.Server, exc);
-		}
-
-		/// <summary>
-		/// 
-		/// </summary>
-		/// <returns></returns>
-		public override IConnection CreateConnection()
-		{
-			if (!Servers.HasNext)
-				return null;
-
-			var server = Servers.Next();
-			var conn = new Connection(server, ConnectionBuilder);
-
-			return conn;
+            _serverManager.ErrorOccurred(connection.Server, exc);
 		}
 	}
 }

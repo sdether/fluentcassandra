@@ -41,8 +41,8 @@ namespace FluentCassandra
 		/// 
 		/// </summary>
 		/// <param name="connectionBuilder"></param>
-		public CassandraSession(IConnectionBuilder connectionBuilder)
-			: this(ConnectionProviderFactory.Get(connectionBuilder), connectionBuilder.ReadConsistency, connectionBuilder.WriteConsistency) { }
+        public CassandraSession(IConnectionBuilder connectionBuilder)
+            : this(ConnectionProviderFactory.Get(connectionBuilder), connectionBuilder) { }
 
 		/// <summary>
 		/// 
@@ -50,15 +50,17 @@ namespace FluentCassandra
 		/// <param name="connectionProvider"></param>
 		/// <param name="read"></param>
 		/// <param name="write"></param>
-		public CassandraSession(IConnectionProvider connectionProvider, ConsistencyLevel read, ConsistencyLevel write)
+        public CassandraSession(IConnectionProvider connectionProvider, IConnectionBuilder connectionBuilder)
 		{
-			if (connectionProvider == null)
-				throw new ArgumentNullException("connectionProvider");
+            if(connectionProvider == null)
+                throw new ArgumentNullException("connectionProvider");
+            if(connectionBuilder == null)
+                throw new ArgumentNullException("connectionBuilder");
 
-			ConnectionBuilder = connectionProvider.ConnectionBuilder;
+            ConnectionBuilder = connectionBuilder;
 			ConnectionProvider = connectionProvider;
-			ReadConsistency = read;
-			WriteConsistency = write;
+			ReadConsistency = connectionBuilder.ReadConsistency;
+            WriteConsistency = connectionBuilder.WriteConsistency;
 
 			IsAuthenticated = false;
 		}
@@ -95,7 +97,7 @@ namespace FluentCassandra
 		/// <returns></returns>
 		internal CassandraClientWrapper GetClient(bool setKeyspace = true, bool? setCqlVersion = null, bool setLogin = true)
 		{
-			var builder = ConnectionProvider.ConnectionBuilder;
+			var builder = ConnectionBuilder;
 			setCqlVersion = setCqlVersion ?? (builder.CqlVersion != null);
 
 			if (_connection == null)
@@ -127,7 +129,7 @@ namespace FluentCassandra
 		/// </summary>
 		public void Login()
 		{
-			var builder = ConnectionProvider.ConnectionBuilder;
+			var builder = ConnectionBuilder;
 
 			if (String.IsNullOrWhiteSpace(builder.Username) || String.IsNullOrWhiteSpace(builder.Password))
 				throw new CassandraException("No username and/or password was set in the connection string, please use Login(username, password) method.");

@@ -4,57 +4,31 @@ namespace FluentCassandra.Connections
 {
 	public abstract class ConnectionProvider : IConnectionProvider
 	{
-		/// <summary>
+	    protected readonly IServerManager _serverManager;
+
+	    /// <summary>
 		/// 
 		/// </summary>
 		/// <param name="builder"></param>
-		protected ConnectionProvider(IConnectionBuilder builder)
-		{
-			ConnectionBuilder = builder;
-			Servers = ServerManagerFactory.Get(builder);
+		protected ConnectionProvider(IServerManager serverManager) {
+		    _serverManager = serverManager;
 		}
 
-		/// <summary>
-		/// 
-		/// </summary>
-		public IConnectionBuilder ConnectionBuilder { get; private set; }
+	    public abstract IConnection Open();
 
-		/// <summary>
-		/// 
-		/// </summary>
-		public IServerManager Servers { get; private set; }
-
-		/// <summary>
-		/// 
-		/// </summary>
-		/// <returns></returns>
-		public abstract IConnection CreateConnection();
-
-		/// <summary>
-		/// 
-		/// </summary>
-		/// <returns></returns>
-		public virtual IConnection Open()
-		{
-			var conn = CreateConnection();
-			conn.Open();
-
-			return conn;
-		}
-
-		public abstract void ErrorOccurred(IConnection connection, Exception exc = null);
+	    public abstract void ErrorOccurred(IConnection connection, Exception exc = null);
 
 		/// <summary>
 		/// 
 		/// </summary>
 		/// <param name="connection"></param>
 		/// <returns></returns>
-		public virtual bool Close(IConnection connection)
+		public virtual void Close(IConnection connection)
 		{
 			if (connection.IsOpen)
 				connection.Close();
-
-			return true;
 		}
+
+	    public virtual void Dispose() {}
 	}
 }

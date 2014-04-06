@@ -1,48 +1,34 @@
-using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace FluentCassandra.Connections
 {
-	public static class ServerManagerFactory
-	{
-		private static readonly object LOCK = new object();
-		private static volatile IDictionary<string, IServerManager> _managers = new Dictionary<string, IServerManager>();
-		private static volatile Func<IConnectionBuilder, IServerManager> _alternateManagerCreator;
+    public interface IServerManagerFactory {
+        IServerManager Get(ServerCollection servers);
+    }
 
-		public static IServerManager Get(IConnectionBuilder connectionBuilder)
+    public class ServerManagerFactory : IServerManagerFactory {
+		private readonly object _lock = new object();
+		private volatile IDictionary<int, IServerManager> _managers = new Dictionary<int, IServerManager>();
+
+        public IServerManager Get(ServerCollection servers)
 		{
-			lock(LOCK)
+			lock(_lock)
 			{
 				IServerManager manager;
 
-				if(!_managers.TryGetValue(connectionBuilder.Uuid, out manager))
+				if(!_managers.TryGetValue(servers.GetHashCode(), out manager))
 				{
-					manager = CreateManager(connectionBuilder);
-					_managers.Add(connectionBuilder.Uuid, manager);
+					if(servers.Count() == 1) {
+					    manager = new SingleServerManager(servers.First(), servers.ServerPollingInterval);
+					} else {
+					    manager = new RoundRobinServerManager(servers);
+					}
+                    _managers.Add(servers.GetHashCode(), manager);
 				}
 
 				return manager;
 			}
-		}
-
-		public static void SetAlternateManagerCreationCallback(Func<IConnectionBuilder, IServerManager> alternateManagerCreator)
-		{
-			lock(LOCK)
-				_alternateManagerCreator = alternateManagerCreator;
-		}
-
-		private static IServerManager CreateManager(IConnectionBuilder builder) 
-		{
-			if(_alternateManagerCreator != null) 
-			{
-				var manager = _alternateManagerCreator(builder);
-				if(manager != null)
-					return manager;
-			}
-
-			return builder.Servers.Count == 1 
-				? (IServerManager)new SingleServerManager(builder) 
-				: new RoundRobinServerManager(builder);
 		}
 	}
 }

@@ -2,6 +2,7 @@
 using System.Configuration;
 using FluentCassandra.Connections;
 using Xunit;
+using System.Linq;
 
 namespace FluentCassandra.Integration.Tests.Connections
 {
@@ -17,7 +18,7 @@ namespace FluentCassandra.Integration.Tests.Connections
             expected.Add(new Server("test-host-3"));
             string connectionString = string.Format("Keyspace={0};Server={1}, {2}, {3};Pooling=True", ConfigurationManager.AppSettings["TestKeySpace"], expected[0].Host, expected[1].Host, expected[2].Host);
             // act
-            IList<Server> actual = new ConnectionBuilder(connectionString).Servers;
+            var actual = new ConnectionBuilder(connectionString).Servers;
 
             // assert
             Assert.Equal(expected.Count, actual.Count);
@@ -39,7 +40,7 @@ namespace FluentCassandra.Integration.Tests.Connections
             expected.Add(new Server("test-host-3"));
             string connectionString = string.Format("Keyspace={0};Server={1} ,{2} ,{3};Pooling=True", ConfigurationManager.AppSettings["TestKeySpace"], expected[0].Host, expected[1].Host, expected[2].Host);
             // act
-            IList<Server> actual = new ConnectionBuilder(connectionString).Servers;
+            var actual = new ConnectionBuilder(connectionString).Servers;
 
             // assert
             Assert.Equal(expected.Count, actual.Count);
@@ -61,14 +62,14 @@ namespace FluentCassandra.Integration.Tests.Connections
             expected.Add(new Server("test-host-3"));
             string connectionString = string.Format("Keyspace={0};Server={1},{2},{3};Pooling=True", ConfigurationManager.AppSettings["TestKeySpace"], expected[0].Host, expected[1].Host, expected[2].Host);
             // act
-            IList<Server> actual = new ConnectionBuilder(connectionString).Servers;
+            var actual = new ConnectionBuilder(connectionString).Servers;
 
             // assert
             Assert.Equal(expected.Count, actual.Count);
             for (int i = 0; i < expected.Count; i++)
             {
                 Server e = expected[i];
-                Server a = actual[i];
+                Server a = actual.ElementAt(i);
                 Assert.Equal(e.Host, a.Host);
             }
         }
@@ -84,8 +85,8 @@ namespace FluentCassandra.Integration.Tests.Connections
             expected.Add(new Server("test-host-3"));
             string connectionString = string.Format(" Keyspace ={0}; Server ={1},{2},{3}; Pooling =True", ConfigurationManager.AppSettings["TestKeySpace"], expected[0].Host, expected[1].Host, expected[2].Host);
             // act
-            ConnectionBuilder result = new ConnectionBuilder(connectionString);
-            IList<Server> actual = result.Servers;
+            var result = new ConnectionBuilder(connectionString);
+            var actual = result.Servers;
             string actualKeyspace = result.Keyspace;
             // assert
             Assert.True(result.Pooling);
@@ -94,7 +95,7 @@ namespace FluentCassandra.Integration.Tests.Connections
             for (int i = 0; i < expected.Count; i++)
             {
                 Server e = expected[i];
-                Server a = actual[i];
+                Server a = actual.ElementAt(i);
                 Assert.Equal(e.Host, a.Host);
             }
         }
@@ -110,8 +111,8 @@ namespace FluentCassandra.Integration.Tests.Connections
             expected.Add(new Server("test-host-3"));
             string connectionString = string.Format("Keyspace= {0} ;Server= {1},{2},{3} ;Pooling= True ", ConfigurationManager.AppSettings["TestKeySpace"], expected[0].Host, expected[1].Host, expected[2].Host);
             // act
-            ConnectionBuilder result = new ConnectionBuilder(connectionString);
-            IList<Server> actual = result.Servers;
+            var result = new ConnectionBuilder(connectionString);
+            var actual = result.Servers;
             string actualKeyspace = result.Keyspace;
             // assert
             Assert.True(result.Pooling);

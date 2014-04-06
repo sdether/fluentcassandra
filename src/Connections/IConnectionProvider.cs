@@ -2,17 +2,12 @@
 
 namespace FluentCassandra.Connections
 {
-	public interface IConnectionProvider
-	{
-		IConnectionBuilder ConnectionBuilder { get; }
-
-		IServerManager Servers { get; }
-
-		IConnection CreateConnection();
+	public interface IConnectionProvider : IDisposable {
+        
 		IConnection Open();
 
 		void ErrorOccurred(IConnection connection, Exception exc = null);
 
-		bool Close(IConnection connection);
+		void Close(IConnection connection);
 	}
 }
