@@ -9,7 +9,7 @@ namespace FluentCassandra
 	public class CassandraSession : IDisposable
 	{
 		private IConnection _connection;
-
+	    private bool _hasOwnConnectionProvider;
 		/// <summary>
 		/// 
 		/// </summary>
@@ -41,8 +41,10 @@ namespace FluentCassandra
 		/// 
 		/// </summary>
 		/// <param name="connectionBuilder"></param>
-        public CassandraSession(IConnectionBuilder connectionBuilder)
-            : this(ConnectionProviderFactory.Get(connectionBuilder), connectionBuilder) { }
+		public CassandraSession(IConnectionBuilder connectionBuilder)
+		    : this(AutoDisposingConnectionProviderRepository.Instance.Get(connectionBuilder), connectionBuilder) {
+		    _hasOwnConnectionProvider = true;
+		}
 
 		/// <summary>
 		/// 
@@ -230,7 +232,9 @@ namespace FluentCassandra
 		{
 			if (!WasDisposed && disposing && _connection != null)
 				ConnectionProvider.Close(_connection);
-
+            if(_hasOwnConnectionProvider) {
+                ConnectionProvider.Dispose();
+            }
 			WasDisposed = true;
 		}
 

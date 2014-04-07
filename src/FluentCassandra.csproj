@@ -119,7 +119,6 @@
     <Compile Include="Connections\ConnectionType.cs" />
     <Compile Include="Connections\CqlVersion.cs" />
     <Compile Include="Connections\IConnectionBuilder.cs" />
-    <Compile Include="Connections\ServerManagerFactory.cs" />
     <Compile Include="Connections\SingleServerManager.cs" />
     <Compile Include="Connections\NormalConnectionProvider.cs" />
     <Compile Include="Connections\IConnection.cs" />

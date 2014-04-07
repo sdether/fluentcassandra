@@ -7,15 +7,15 @@ namespace FluentCassandra.Connections {
     public class SingleServerManagerTests {
 
         [Fact]
-        public void HasNextIsFalseAfterServerFailure() {
+        public void GetServerReturnsNullAfterServerFailure() {
             var builder = new ConnectionBuilder("Server=unit-test-1");
             var manager = new SingleServerManager(builder.Servers.First(), builder.ServerPollingInterval);
 
-            Assert.True(manager.HasNext, "SingleServerManager was not initialized with a server");
-            var server = manager.Next();
+            var server = manager.GetServer();
+            Assert.False(manager.GetServer() == null, "SingleServerManager was not initialized with a server");
             manager.ErrorOccurred(server, new Exception());
 
-            Assert.False(manager.HasNext, "SingleServerManager still has a server after its failure");
+            Assert.True(manager.GetServer() == null, "SingleServerManager still has a server after its failure");
         }
     }
 }

@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using Xunit;
 
 namespace FluentCassandra.Connections
@@ -9,16 +10,15 @@ namespace FluentCassandra.Connections
 		[Fact]
 		public void CanBlackListAndCleanQueueTest()
 		{
-			RoundRobinServerManager target = new RoundRobinServerManager(new ConnectionBuilder("Server=unit-test-1,unit-test-2,unit-test-3").Servers);
-
-			Server srv = new Server("unit-test-4");
-			target.Add(srv);
+            var connectionBuilder = new ConnectionBuilder("Server=unit-test-1");
+            var srv = new Server("unit-test-4");
+            connectionBuilder.Servers.Add(srv);
+            var target = new RoundRobinServerManager(connectionBuilder.GetServerCollection());
 
 			bool gotServer4 = false;
 
-			for (int i = 0; i < 4; i++)
-			{
-				Server server = target.Next();
+			for (var i = 0; i < 4; i++) {
+			    var server = target.GetServer();
 				if (server.ToString().Equals(srv.ToString(), StringComparison.OrdinalIgnoreCase))
 				{
 					gotServer4 = true;
@@ -31,10 +31,10 @@ namespace FluentCassandra.Connections
 			target.ErrorOccurred(srv);
 
 			gotServer4 = false;
-			for (int i = 0; i < 4; i++)
+			for (var i = 0; i < 4; i++)
 			{
-				Server server = target.Next();
-				if (server.Equals(srv))
+                var server = target.GetServer();
+                if(server.Equals(srv))
 				{
 					gotServer4 = true;
 					break;
@@ -45,38 +45,33 @@ namespace FluentCassandra.Connections
 		}
 
 		[Fact]
-		public void HasNextWithMoreThanHalfBlacklistedTest()
-		{
-			RoundRobinServerManager target = new RoundRobinServerManager(new ConnectionBuilder("Server=unit-test-1").Servers);
+		public void HasNextWithMoreThanHalfBlacklistedTest() {
+		    var connectionBuilder = new ConnectionBuilder("Server=unit-test-1");
+            Server srv1 = connectionBuilder.Servers.First();
+            var srv2 = new Server("unit-test-2");
+            var srv3 = new Server("unit-test-3");
+            var srv4 = new Server("unit-test-4");
+            connectionBuilder.Servers.Add(srv2);
+            connectionBuilder.Servers.Add(srv3);
+            connectionBuilder.Servers.Add(srv4);
+            var target = new RoundRobinServerManager(connectionBuilder.GetServerCollection());
 
-			Server srv1 = null;
-			Server srv2 = new Server("unit-test-2");
-			Server srv3 = new Server("unit-test-3");
-			Server srv4 = new Server("unit-test-4");
-			target.Add(srv2);
-			target.Add(srv3);
-			target.Add(srv4);
-			List<Server> servers = new List<Server> { new Server("unit-test-1"), srv2, srv3, srv4 };
+			var servers = new List<Server> { new Server("unit-test-1"), srv2, srv3, srv4 };
 
-			for (int i = 0; i < 4; i++)
-			{
-				Server srv = target.Next();
-				Assert.True(servers[i].ToString().Equals(srv.ToString(), StringComparison.OrdinalIgnoreCase));
-				if(i == 0)
-				{
-					srv1 = srv;
-				}
+			for (var i = 0; i < 4; i++) {
+			    var srv = target.GetServer();
+				Assert.True(connectionBuilder.Servers[i].ToString().Equals(srv.ToString(), StringComparison.OrdinalIgnoreCase));
 			}
 
 			target.ErrorOccurred(srv2);
 			target.ErrorOccurred(srv3);
-			Assert.True(target.HasNext);
+			Assert.NotNull(target.GetServer());
 
 			target.ErrorOccurred(srv1);
-			Assert.True(target.HasNext);
+            Assert.NotNull(target.GetServer());
 
 			target.ErrorOccurred(srv4);
-			Assert.False(target.HasNext);
-		}
+            Assert.Null(target.GetServer());
+        }
 	}
 }

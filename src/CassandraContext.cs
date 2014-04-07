@@ -12,9 +12,11 @@ namespace FluentCassandra
 {
 	public class CassandraContext : IDisposable
 	{
-		private readonly IList<IFluentMutationTracker> _trackers;
+	    private readonly IConnectionProviderRepository _connectionProviderRepository;
+	    private readonly IList<IFluentMutationTracker> _trackers;
 		private CassandraSession _session;
 		private readonly bool _isOutsideSession = false;
+	    private readonly bool _hasOutsideConnectionProvider = false;
 
 		/// <summary>
 		/// 
@@ -54,13 +56,16 @@ namespace FluentCassandra
 			_isOutsideSession = true;
 		}
 
-		/// <summary>
-		/// 
-		/// </summary>
-		/// <param name="connectionBuilder"></param>
-		public CassandraContext(IConnectionBuilder connectionBuilder)
+	    /// <summary>
+	    /// 
+	    /// </summary>
+	    /// <param name="connectionBuilder"></param>
+	    /// <param name="connectionProviderRepository"></param>
+	    public CassandraContext(IConnectionBuilder connectionBuilder, IConnectionProviderRepository connectionProviderRepository = null)
 		{
-			ThrowErrors = true;
+		    _connectionProviderRepository = connectionProviderRepository ?? AutoDisposingConnectionProviderRepository.Instance;
+	        _hasOutsideConnectionProvider = connectionProviderRepository != null;
+		    ThrowErrors = true;
 
 			_trackers = new List<IFluentMutationTracker>();
 			ConnectionBuilder = connectionBuilder;
@@ -375,11 +380,10 @@ namespace FluentCassandra
 				throw new ObjectDisposedException(GetType().FullName);
 
 			var localSession = _session == null;
-			var session = _session;
-			if (session == null)
-				session = new CassandraSession(ConnectionBuilder);
+		    var connectionProvider = _connectionProviderRepository.Get(ConnectionBuilder);
+            var session = _session ?? new CassandraSession(connectionProvider, ConnectionBuilder);
 
-			action.Context = this;
+		    action.Context = this;
 
 			try
 			{
@@ -394,6 +398,9 @@ namespace FluentCassandra
 				{
 					session.Dispose();
 				}
+                if(!_hasOutsideConnectionProvider) {
+                    connectionProvider.Dispose();
+                }
 			}
 		}
 
