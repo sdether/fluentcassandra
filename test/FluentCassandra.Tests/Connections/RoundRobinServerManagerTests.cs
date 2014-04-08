@@ -60,7 +60,6 @@ namespace FluentCassandra.Connections
 
 			for (var i = 0; i < 4; i++) {
 			    var srv = target.GetServer();
-                Console.WriteLine(srv);
 				Assert.True(connectionBuilder.Servers[i].ToString().Equals(srv.ToString(), StringComparison.OrdinalIgnoreCase));
 			}
 

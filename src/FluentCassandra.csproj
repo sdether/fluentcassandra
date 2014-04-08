@@ -108,6 +108,7 @@
     <Compile Include="CassandraSuperColumnFamilyOperations.cs" />
     <Compile Include="CassandraSuperColumnFamily.cs" />
     <Compile Include="CassandraTokenRange.cs" />
+    <Compile Include="Connections\AutoDisposingConnectionProviderRepository.cs" />
     <Compile Include="Connections\CassandraConnectionException.cs" />
     <Compile Include="Connections\LockTimeoutException.cs" />
     <Compile Include="Connections\ServerCollection.cs" />
@@ -115,7 +116,7 @@
     <Compile Include="Connections\Connection.cs" />
     <Compile Include="Connections\ConnectionBuilder.cs" />
     <Compile Include="Connections\ConnectionProvider.cs" />
-    <Compile Include="Connections\ConnectionProviderFactory.cs" />
+    <Compile Include="Connections\IConnectionProviderRepository.cs" />
     <Compile Include="Connections\ConnectionType.cs" />
     <Compile Include="Connections\CqlVersion.cs" />
     <Compile Include="Connections\IConnectionBuilder.cs" />
