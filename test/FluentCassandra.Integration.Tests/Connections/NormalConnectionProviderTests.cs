@@ -22,7 +22,7 @@ namespace FluentCassandra.Integration.Tests.Connections
 
             // act
 			var result = new ConnectionBuilder(_failoverConnectionString);
-			var provider = ConnectionProviderFactory.Get(result);
+            var provider = AutoDisposingConnectionProviderRepository.Instance.Get(result);
 			var conn = provider.Open();
 			var actualHost = conn.Server.Host;
 			var actualPort = conn.Server.Port;

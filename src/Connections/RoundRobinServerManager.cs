@@ -12,7 +12,7 @@ namespace FluentCassandra.Connections {
         private readonly long _recoveryTimerInterval;
         private bool _isDisposed;
         private readonly List<Server> _live;
-        private int _index;
+        private int _index = -1;
 
         public RoundRobinServerManager(ServerCollection serverCollection) {
             _live = new List<Server>(serverCollection);
