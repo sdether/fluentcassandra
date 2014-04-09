@@ -13,7 +13,7 @@ namespace FluentCassandra.Connections
             var connectionBuilder = new ConnectionBuilder("Server=unit-test-1");
             var srv = new Server("unit-test-4");
             connectionBuilder.Servers.Add(srv);
-            var target = new RoundRobinServerManager(connectionBuilder.GetServerCollection());
+            var target = new RoundRobinServerManager(connectionBuilder.Cluster);
 
 			bool gotServer4 = false;
 
@@ -54,7 +54,7 @@ namespace FluentCassandra.Connections
             connectionBuilder.Servers.Add(srv2);
             connectionBuilder.Servers.Add(srv3);
             connectionBuilder.Servers.Add(srv4);
-            var target = new RoundRobinServerManager(connectionBuilder.GetServerCollection());
+            var target = new RoundRobinServerManager(connectionBuilder.Cluster);
 
 			var servers = new List<Server> { new Server("unit-test-1"), srv2, srv3, srv4 };
 
