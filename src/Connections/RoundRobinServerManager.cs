@@ -14,10 +14,10 @@ namespace FluentCassandra.Connections {
         private readonly List<Server> _live;
         private int _index = -1;
 
-        public RoundRobinServerManager(ServerCollection serverCollection) {
-            _live = new List<Server>(serverCollection);
+        public RoundRobinServerManager(Cluster cluster) {
+            _live = new List<Server>(cluster);
             _blackListed = new HashSet<Server>();
-            _recoveryTimerInterval = (long)serverCollection.ServerPollingInterval.TotalMilliseconds;
+            _recoveryTimerInterval = (long)cluster.ServerPollingInterval.TotalMilliseconds;
             _recoveryTimer = new Timer(o => ServerRecover(), null, _recoveryTimerInterval, Timeout.Infinite);
         }
 

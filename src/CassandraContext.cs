@@ -12,7 +12,7 @@ namespace FluentCassandra
 {
 	public class CassandraContext : IDisposable
 	{
-	    private readonly IConnectionProviderRepository _connectionProviderRepository;
+	    private readonly IConnectionProvider _connectionProvider;
 	    private readonly IList<IFluentMutationTracker> _trackers;
 		private CassandraSession _session;
 		private readonly bool _isOutsideSession = false;
@@ -60,11 +60,10 @@ namespace FluentCassandra
 	    /// 
 	    /// </summary>
 	    /// <param name="connectionBuilder"></param>
-	    /// <param name="connectionProviderRepository"></param>
-	    public CassandraContext(IConnectionBuilder connectionBuilder, IConnectionProviderRepository connectionProviderRepository = null)
-		{
-		    _connectionProviderRepository = connectionProviderRepository ?? AutoDisposingConnectionProviderRepository.Instance;
-	        _hasOutsideConnectionProvider = connectionProviderRepository != null;
+	    /// <param name="connectionProvider"></param>
+	    public CassandraContext(IConnectionBuilder connectionBuilder, IConnectionProvider connectionProvider = null) {
+	        _connectionProvider = connectionProvider ?? AutoDisposingConnectionProviderRepository.Instance.Get(connectionBuilder);
+            _hasOutsideConnectionProvider = connectionProvider != null;
 		    ThrowErrors = true;
 
 			_trackers = new List<IFluentMutationTracker>();
@@ -380,8 +379,7 @@ namespace FluentCassandra
 				throw new ObjectDisposedException(GetType().FullName);
 
 			var localSession = _session == null;
-		    var connectionProvider = _connectionProviderRepository.Get(ConnectionBuilder);
-            var session = _session ?? new CassandraSession(connectionProvider, ConnectionBuilder);
+            var session = _session ?? new CassandraSession(_connectionProvider, ConnectionBuilder);
 
 		    action.Context = this;
 
@@ -398,9 +396,6 @@ namespace FluentCassandra
 				{
 					session.Dispose();
 				}
-                if(!_hasOutsideConnectionProvider) {
-                    connectionProvider.Dispose();
-                }
 			}
 		}
 
@@ -432,11 +427,18 @@ namespace FluentCassandra
 		/// </param>
 		protected virtual void Dispose(bool disposing)
 		{
-			if (!WasDisposed && !_isOutsideSession && disposing && _session != null)
+			if (!WasDisposed &&  disposing)
 			{
-				_session.Dispose();
-				_session = null;
+			    if(!_isOutsideSession && _session != null) {
+			        _session.Dispose();
+			        _session = null;
+			    }
+			    if(!_hasOutsideConnectionProvider) {
+                    _connectionProvider.Dispose();
+                }
+
 			}
+
 
 			WasDisposed = true;
 		}

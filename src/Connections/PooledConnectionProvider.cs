@@ -16,13 +16,13 @@ namespace FluentCassandra.Connections
 		/// <summary>
 		/// 
 		/// </summary>
-		/// <param name="builder"></param>
-		public PooledConnectionProvider(IServerManager serverManager, IConnectionBuilder builder)
-            : base(serverManager, builder)
+		/// <param name="cluster"></param>
+		public PooledConnectionProvider(IServerManager serverManager, Cluster cluster)
+            : base(serverManager, cluster)
 		{
-			MinPoolSize = builder.MinPoolSize;
-			MaxPoolSize = builder.MaxPoolSize;
-			ConnectionLifetime = builder.ConnectionLifetime;
+			MinPoolSize = cluster.MinPoolSize;
+			MaxPoolSize = cluster.MaxPoolSize;
+			ConnectionLifetime = cluster.ConnectionLifetime;
 
 			_maintenanceTimer = new Timer(o => CheckFreeConnectionsAlive(), null, 30000L, 30000L);
 		}

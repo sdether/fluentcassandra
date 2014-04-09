@@ -60,21 +60,21 @@ namespace FluentCassandra.Connections {
         public IConnectionProvider Get(IConnectionBuilder builder) {
             lock(_lock) {
                 ReferenceCountingProviderWrapper provider;
-                var servers = builder.GetServerCollection();
-                var hashcode = servers.GetHashCode();
-                var serverManager = CreateServerManager(servers);
-                if(builder.Pooling) {
+                var cluster = builder.Cluster;
+                var hashcode = cluster.GetHashCode();
+                var serverManager = CreateServerManager(cluster);
+                if(cluster.Pooling) {
                     if(_poolingProviders.TryGetValue(hashcode, out provider) && provider.Active) {
                         provider.IncrementReferences();
                     } else {
-                        provider = new ReferenceCountingProviderWrapper(new PooledConnectionProvider(serverManager, builder), serverManager);
+                        provider = new ReferenceCountingProviderWrapper(new PooledConnectionProvider(serverManager, cluster), serverManager);
                         _poolingProviders[hashcode] = provider;
                     }
                 } else {
                     if(_singleProviders.TryGetValue(hashcode, out provider) && provider.Active) {
                         provider.IncrementReferences();
                     } else {
-                        provider = new ReferenceCountingProviderWrapper(new PooledConnectionProvider(serverManager, builder), serverManager);
+                        provider = new ReferenceCountingProviderWrapper(new PooledConnectionProvider(serverManager, cluster), serverManager);
                         _singleProviders[hashcode] = provider;
                     }
                 }
@@ -82,7 +82,7 @@ namespace FluentCassandra.Connections {
             }
         }
         
-        private IServerManager CreateServerManager(ServerCollection servers) {
+        private IServerManager CreateServerManager(Cluster servers) {
             return servers.Count() == 1
                 ? (IServerManager)new SingleServerManager(servers.First(), servers.ServerPollingInterval)
                 : new RoundRobinServerManager(servers);

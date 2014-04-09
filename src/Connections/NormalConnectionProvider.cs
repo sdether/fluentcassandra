@@ -8,16 +8,16 @@ namespace FluentCassandra.Connections
 		/// <summary>
 		/// 
 		/// </summary>
-		/// <param name="builder"></param>
-		public NormalConnectionProvider(IServerManager serverManager, IConnectionBuilder builder)
+		/// <param name="cluster"></param>
+		public NormalConnectionProvider(IServerManager serverManager, Cluster cluster)
             : base(serverManager)
 		{
-			if (builder.Servers.Count > 1 && builder.ConnectionTimeout == TimeSpan.Zero)
+			if (cluster.Count > 1 && cluster.ConnectionTimeout == TimeSpan.Zero)
 				throw new CassandraException("You must specify a timeout when using multiple servers.");
 
-			ConnectionTimeout = builder.ConnectionTimeout;
-		    ConnectionType = builder.ConnectionType;
-		    BufferSize = builder.BufferSize;
+			ConnectionTimeout = cluster.ConnectionTimeout;
+		    ConnectionType = cluster.ConnectionType;
+		    BufferSize = cluster.BufferSize;
 		}
 
 		/// <summary>

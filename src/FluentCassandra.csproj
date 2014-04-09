@@ -112,7 +112,7 @@
     <Compile Include="Connections\AutoDisposingConnectionProviderRepository.cs" />
     <Compile Include="Connections\IConnectionProviderRepository.cs" />
     <Compile Include="Connections\LockTimeoutException.cs" />
-    <Compile Include="Connections\ServerCollection.cs" />
+    <Compile Include="Connections\Cluster.cs" />
     <Compile Include="Connections\TSocketWithConnectTimeout.cs" />
     <Compile Include="Connections\Connection.cs" />
     <Compile Include="Connections\ConnectionBuilder.cs" />

@@ -30,6 +30,6 @@ namespace FluentCassandra.Connections
 
 		string Uuid { get; }
 
-	    ServerCollection GetServerCollection();
+	    Cluster Cluster { get; }
 	}
 }

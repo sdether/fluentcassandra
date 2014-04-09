@@ -9,7 +9,6 @@ using System.Linq;
 namespace FluentCassandra.Connections {
     public class ConnectionBuilder : FluentCassandra.Connections.IConnectionBuilder {
 
-        private ServerCollection _servers = null;
         private ObservableServerList _observableServerList;
 
         /// <summary>
@@ -28,7 +27,6 @@ namespace FluentCassandra.Connections {
             MaxPoolSize = maxPoolSize;
             MaxRetries = maxRetries;
             ServerPollingInterval = TimeSpan.FromSeconds(serverPollingInterval);
-            _servers = new ServerCollection(new[] { new Server(host, port) }, ServerPollingInterval);
             ConnectionLifetime = TimeSpan.FromSeconds(connectionLifetime);
             ConnectionType = connectionType;
             BufferSize = bufferSize;
@@ -38,6 +36,7 @@ namespace FluentCassandra.Connections {
             CompressCqlQueries = compressCqlQueries;
             Username = username;
             Password = password;
+            Cluster = new Cluster(new[] { new Server(host, port) }, ServerPollingInterval);
 
             ConnectionString = GetConnectionString();
         }
@@ -51,7 +50,6 @@ namespace FluentCassandra.Connections {
             MaxPoolSize = maxPoolSize;
             MaxRetries = maxRetries;
             ServerPollingInterval = TimeSpan.FromSeconds(serverPollingInterval);
-            _servers = new ServerCollection(new[] { server }, ServerPollingInterval);
             ConnectionLifetime = TimeSpan.FromSeconds(connectionLifetime);
             ConnectionType = connectionType;
             BufferSize = bufferSize;
@@ -61,6 +59,7 @@ namespace FluentCassandra.Connections {
             CompressCqlQueries = compressCqlQueries;
             Username = username;
             Password = password;
+            Cluster = new Cluster(new[] { server }, ServerPollingInterval);
 
             ConnectionString = GetConnectionString();
         }
@@ -73,7 +72,6 @@ namespace FluentCassandra.Connections {
             MaxPoolSize = maxPoolSize;
             MaxRetries = maxRetries;
             ServerPollingInterval = TimeSpan.FromSeconds(serverPollingInterval);
-            _servers = new ServerCollection(servers, ServerPollingInterval);
             ConnectionLifetime = TimeSpan.FromSeconds(connectionLifetime);
             ConnectionType = connectionType;
             BufferSize = bufferSize;
@@ -83,6 +81,7 @@ namespace FluentCassandra.Connections {
             CompressCqlQueries = compressCqlQueries;
             Username = username;
             Password = password;
+            Cluster = new Cluster(servers, ServerPollingInterval);
 
             ConnectionString = GetConnectionString();
         }
@@ -372,7 +371,7 @@ namespace FluentCassandra.Connections {
                         servers.Add(new Server(host: host, timeout: ConnectionTimeout.Seconds));
                 }
             }
-            _servers = new ServerCollection(servers, ServerPollingInterval);
+            Cluster = new Cluster(servers, ServerPollingInterval);
             #endregion
         }
 
@@ -499,9 +498,7 @@ namespace FluentCassandra.Connections {
         /// </summary>
         public string Uuid { get { return ConnectionString; } }
 
-        public ServerCollection GetServerCollection() {
-            return _servers;
-        }
+        public Cluster Cluster { get; private set; }
 
         private class ObservableServerList : IList<Server> {
             private readonly ConnectionBuilder _this;
@@ -511,7 +508,7 @@ namespace FluentCassandra.Connections {
             }
 
             public IEnumerator<Server> GetEnumerator() {
-                return _this._servers.GetEnumerator();
+                return _this.Cluster.GetEnumerator();
             }
 
             IEnumerator IEnumerable.GetEnumerator() {
@@ -519,57 +516,57 @@ namespace FluentCassandra.Connections {
             }
 
             public void Add(Server item) {
-                _this._servers = new ServerCollection(_this._servers.Concat(new[] { item }), _this.ServerPollingInterval);
+                _this.Cluster = _this.Cluster.WithServers(_this.Cluster.Concat(new[] { item }));
             }
 
             public void Clear() {
-                _this._servers = new ServerCollection(new Server[0], _this.ServerPollingInterval);
+                _this.Cluster = _this.Cluster.WithServers(new Server[0]);
             }
 
             public bool Contains(Server item) {
-                return _this._servers.Contains(item);
+                return _this.Cluster.Contains(item);
             }
 
             public void CopyTo(Server[] array, int arrayIndex) {
-                var servers = _this._servers.ToArray();
+                var servers = _this.Cluster.ToArray();
                 servers.CopyTo(array, arrayIndex);
-                _this._servers = new ServerCollection(servers, _this.ServerPollingInterval);
+                _this.Cluster = _this.Cluster.WithServers(servers);
             }
 
             public bool Remove(Server item) {
-                var servers = _this._servers.ToList();
+                var servers = _this.Cluster.ToList();
                 var removed = servers.Remove(item);
                 if(!removed) {
                     return false;
                 }
-                _this._servers = new ServerCollection(servers, _this.ServerPollingInterval);
+                _this.Cluster = _this.Cluster.WithServers(servers);
                 return true;
             }
 
-            public int Count { get { return _this._servers.Count; } }
+            public int Count { get { return _this.Cluster.Count; } }
             public bool IsReadOnly { get { return false; } }
             public int IndexOf(Server item) {
-                return Array.IndexOf(_this._servers.ToArray(), item);
+                return Array.IndexOf(_this.Cluster.ToArray(), item);
             }
 
             public void Insert(int index, Server item) {
-                var servers = _this._servers.ToList();
+                var servers = _this.Cluster.ToList();
                 servers.Insert(index, item);
-                _this._servers = new ServerCollection(servers, _this.ServerPollingInterval);
+                _this.Cluster = _this.Cluster.WithServers(servers);
             }
 
             public void RemoveAt(int index) {
-                var servers = _this._servers.ToList();
+                var servers = _this.Cluster.ToList();
                 servers.RemoveAt(index);
-                _this._servers = new ServerCollection(servers, _this.ServerPollingInterval);
+                _this.Cluster = _this.Cluster.WithServers(servers);
             }
 
             public Server this[int index] {
-                get { return _this._servers[index]; }
+                get { return _this.Cluster[index]; }
                 set {
-                    var servers = _this._servers.ToList();
+                    var servers = _this.Cluster.ToList();
                     servers[index] = value;
-                    _this._servers = new ServerCollection(servers, _this.ServerPollingInterval);
+                    _this.Cluster = _this.Cluster.WithServers(servers);
                 }
             }
         }
