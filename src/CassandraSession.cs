@@ -10,6 +10,7 @@ namespace FluentCassandra
 	{
 		private IConnection _connection;
 	    private bool _hasOwnConnectionProvider;
+
 		/// <summary>
 		/// 
 		/// </summary>

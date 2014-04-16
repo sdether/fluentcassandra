@@ -3,16 +3,18 @@ using System.Net.Sockets;
 
 namespace FluentCassandra.Connections
 {
-	public class NormalConnectionProvider : ConnectionProvider
+	public class NormalConnectionProvider : IConnectionProvider
 	{
-		/// <summary>
+	    private readonly IServerManager _serverManager;
+
+	    /// <summary>
 		/// 
 		/// </summary>
 		/// <param name="cluster"></param>
 		public NormalConnectionProvider(IServerManager serverManager, Cluster cluster)
-            : base(serverManager)
 		{
-			if (cluster.Count > 1 && cluster.ConnectionTimeout == TimeSpan.Zero)
+		    _serverManager = serverManager;
+		    if (cluster.Count > 1 && cluster.ConnectionTimeout == TimeSpan.Zero)
 				throw new CassandraException("You must specify a timeout when using multiple servers.");
 
 			ConnectionTimeout = cluster.ConnectionTimeout;
@@ -26,18 +28,19 @@ namespace FluentCassandra.Connections
 		public TimeSpan ConnectionTimeout { get; private set; }
         public ConnectionType ConnectionType { get; private set; }
         public int BufferSize { get; private set; }
+
 		/// <summary>
 		/// 
 		/// </summary>
 		/// <returns></returns>
-		public override IConnection Open()
+		public IConnection Open()
 		{
 			IConnection conn = null;
 		    Server server = null;
 			while ((server = _serverManager.GetServer()) != null)
 			{
 				try {
-				    conn = CreateConnection(server);
+                    conn = new Connection(server, ConnectionType, BufferSize);
 					conn.Open();
 					break;
 				}
@@ -55,14 +58,19 @@ namespace FluentCassandra.Connections
 			return conn;
 		}
 
-	    protected virtual IConnection CreateConnection(Server server) {
-	        return new Connection(server, ConnectionType, BufferSize);
-	    }
-
-	    public override void ErrorOccurred(IConnection connection, Exception exc = null)
+	    public void ErrorOccurred(IConnection connection, Exception exc = null)
 		{
-			try { Close(connection); } catch { }
+			try {
+                Close(connection);
+            } catch { }
             _serverManager.ErrorOccurred(connection.Server, exc);
 		}
+
+	    public void Close(IConnection connection) {
+            if(connection.IsOpen)
+                connection.Close();
+        }
+
+	    public void Dispose() {}
 	}
 }

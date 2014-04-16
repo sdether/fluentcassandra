@@ -116,7 +116,6 @@
     <Compile Include="Connections\TSocketWithConnectTimeout.cs" />
     <Compile Include="Connections\Connection.cs" />
     <Compile Include="Connections\ConnectionBuilder.cs" />
-    <Compile Include="Connections\ConnectionProvider.cs" />
     <Compile Include="Connections\ConnectionType.cs" />
     <Compile Include="Connections\CqlVersion.cs" />
     <Compile Include="Connections\IConnectionBuilder.cs" />
