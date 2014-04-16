@@ -10,6 +10,7 @@ namespace FluentCassandra.Connections {
         private readonly Queue<IConnection> _freeConnections = new Queue<IConnection>();
         private readonly HashSet<IConnection> _usedConnections = new HashSet<IConnection>();
         private readonly Timer _maintenanceTimer;
+        private readonly Func<Server, ConnectionType, int, IConnection> _connectionFactory;
         private bool _isDisposed;
 
         /// <summary>
@@ -17,7 +18,9 @@ namespace FluentCassandra.Connections {
         /// </summary>
         /// <param name="serverManager"></param>
         /// <param name="cluster"></param>
-        public PooledConnectionProvider(IServerManager serverManager, Cluster cluster) {
+        /// <param name="connectionFactory">Optional custom connection factory (such as for testing)</param>
+        public PooledConnectionProvider(IServerManager serverManager, Cluster cluster, Func<Server,ConnectionType,int,IConnection> connectionFactory = null) {
+            _connectionFactory = connectionFactory ?? ((server, connectionType, bufferSize) => new Connection(server,connectionType,bufferSize));
             _serverManager = serverManager;
             MinPoolSize = cluster.MinPoolSize;
             MaxPoolSize = cluster.MaxPoolSize;
@@ -57,7 +60,8 @@ namespace FluentCassandra.Connections {
             IConnection conn = null;
             while(conn == null) {
                 lock(_lock) {
-                    if(_freeConnections.Count > 0) {
+                    var poolSize = _freeConnections.Count + _usedConnections.Count;
+                    if(poolSize >= MinPoolSize && _freeConnections.Count > 0) {
                         conn = _freeConnections.Dequeue();
                         if(!conn.IsOpen) {
                             conn.Dispose();
@@ -66,18 +70,18 @@ namespace FluentCassandra.Connections {
                         _usedConnections.Add(conn);
                         break;
                     }
-                    if(_freeConnections.Count + _usedConnections.Count >= MaxPoolSize) {
+                    if(poolSize >= MaxPoolSize) {
                         if(!Monitor.Wait(_lock, TimeSpan.FromSeconds(30)))
                             throw new TimeoutException("No connection could be made, timed out trying to acquirer a connection from the connection pool.");
 
                         continue;
                     }
-                    Server server = _serverManager.GetServer();
+                    var server = _serverManager.GetServer();
                     if(server == null) {
                         throw new CassandraException("No connection could be made because all servers have failed.");
                     }
                     try {
-                        conn = new Connection(server, ConnectionType, BufferSize);
+                        conn = _connectionFactory(server, ConnectionType, BufferSize);
                         conn.Open();
                         break;
                     } catch(SocketException exc) {

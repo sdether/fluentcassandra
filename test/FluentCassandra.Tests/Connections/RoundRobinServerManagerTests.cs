@@ -5,7 +5,7 @@ using Xunit;
 
 namespace FluentCassandra.Connections
 {
-	public class RoundRobinServerManagerTests
+    public class RoundRobinServerManagerTests
 	{
 		[Fact]
 		public void CanBlackListAndCleanQueueTest()

@@ -319,11 +319,11 @@ namespace FluentCassandra.Connections {
                     if(serverParts.Length == 2) {
                         int port;
                         if(Int32.TryParse(serverParts[1].Trim(), out port))
-                            servers.Add(new Server(host: host, port: port, timeout: ConnectionTimeout.Seconds));
+                            servers.Add(new Server(host: host, port: port, timeout: connectionTimeout.Seconds));
                         else
-                            servers.Add(new Server(host: host, timeout: ConnectionTimeout.Seconds));
+                            servers.Add(new Server(host: host, timeout: connectionTimeout.Seconds));
                     } else
-                        servers.Add(new Server(host: host, timeout: ConnectionTimeout.Seconds));
+                        servers.Add(new Server(host: host, timeout: connectionTimeout.Seconds));
                 }
             }
             Cluster = new Cluster(servers, pooling, connectionTimeout, minPoolSize, maxPoolSize, serverPollingInterval, connectionLifetime, connectionType, bufferSize);
