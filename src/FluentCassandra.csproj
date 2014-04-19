@@ -109,7 +109,7 @@
     <Compile Include="CassandraSuperColumnFamily.cs" />
     <Compile Include="CassandraTokenRange.cs" />
     <Compile Include="Connections\CassandraConnectionException.cs" />
-    <Compile Include="Connections\AutoDisposingConnectionProviderRepository.cs" />
+    <Compile Include="Connections\ConnectionProviderFactory.cs" />
     <Compile Include="Connections\IConnectionProviderRepository.cs" />
     <Compile Include="Connections\LockTimeoutException.cs" />
     <Compile Include="Connections\Cluster.cs" />

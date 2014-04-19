@@ -16,7 +16,7 @@ namespace FluentCassandra.Integration.Tests.Connections
 
 			// act
 			var result = new ConnectionBuilder(connectionString);
-			var actual = AutoDisposingConnectionProviderRepository.Instance.Get(result).GetType();
+            var actual = ConnectionProviderFactory.Get(result).GetType();
 
 			// assert
 			Assert.Equal(expected, actual);
@@ -31,7 +31,7 @@ namespace FluentCassandra.Integration.Tests.Connections
 
 			// act
 			var result = new ConnectionBuilder(connectionString);
-            var actual = AutoDisposingConnectionProviderRepository.Instance.Get(result).GetType();
+            var actual = ConnectionProviderFactory.Get(result).GetType();
 
 			// assert
 			Assert.Equal(expected, actual);

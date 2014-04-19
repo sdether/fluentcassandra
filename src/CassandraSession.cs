@@ -43,7 +43,7 @@ namespace FluentCassandra
 		/// </summary>
 		/// <param name="connectionBuilder"></param>
 		public CassandraSession(IConnectionBuilder connectionBuilder)
-		    : this(AutoDisposingConnectionProviderRepository.Instance.Get(connectionBuilder), connectionBuilder) {
+		    : this(ConnectionProviderFactory.Get(connectionBuilder), connectionBuilder) {
 		    _hasOwnConnectionProvider = true;
 		}
 

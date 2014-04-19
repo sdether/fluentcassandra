@@ -62,7 +62,7 @@ namespace FluentCassandra
 	    /// <param name="connectionBuilder"></param>
 	    /// <param name="connectionProvider"></param>
 	    public CassandraContext(IConnectionBuilder connectionBuilder, IConnectionProvider connectionProvider = null) {
-	        _connectionProvider = connectionProvider ?? AutoDisposingConnectionProviderRepository.Instance.Get(connectionBuilder);
+            _connectionProvider = connectionProvider ?? ConnectionProviderFactory.Get(connectionBuilder);
             _hasOutsideConnectionProvider = connectionProvider != null;
 		    ThrowErrors = true;
 
