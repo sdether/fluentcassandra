@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Net.Sockets;
 using System.Threading;
 
@@ -7,10 +8,15 @@ namespace FluentCassandra.Connections {
     public class PooledConnectionProvider : IConnectionProvider {
         private readonly object _lock = new object();
         private readonly IServerManager _serverManager;
-        private readonly Queue<IConnection> _freeConnections = new Queue<IConnection>();
         private readonly HashSet<IConnection> _usedConnections = new HashSet<IConnection>();
         private readonly Timer _maintenanceTimer;
         private readonly Func<Server, ConnectionType, int, IConnection> _connectionFactory;
+        private readonly int _minPoolSize;
+        private readonly int _maxPoolSize;
+        private readonly ConnectionType _connectionType;
+        private readonly int _bufferSize;
+        private readonly TimeSpan _connectionLifetime;
+        private Queue<IConnection> _freeConnections = new Queue<IConnection>();
         private bool _isDisposed;
 
         /// <summary>
@@ -19,38 +25,16 @@ namespace FluentCassandra.Connections {
         /// <param name="serverManager"></param>
         /// <param name="cluster"></param>
         /// <param name="connectionFactory">Optional custom connection factory (such as for testing)</param>
-        public PooledConnectionProvider(IServerManager serverManager, Cluster cluster, Func<Server,ConnectionType,int,IConnection> connectionFactory = null) {
-            _connectionFactory = connectionFactory ?? ((server, connectionType, bufferSize) => new Connection(server,connectionType,bufferSize));
+        public PooledConnectionProvider(IServerManager serverManager, Cluster cluster, Func<Server, ConnectionType, int, IConnection> connectionFactory = null) {
+            _connectionFactory = connectionFactory ?? ((server, connectionType, bufferSize) => new Connection(server, connectionType, bufferSize));
             _serverManager = serverManager;
-            MinPoolSize = cluster.MinPoolSize;
-            MaxPoolSize = cluster.MaxPoolSize;
-            ConnectionTimeout = cluster.ConnectionTimeout;
-            ConnectionType = cluster.ConnectionType;
-            BufferSize = cluster.BufferSize;
+            _minPoolSize = cluster.MinPoolSize;
+            _maxPoolSize = cluster.MaxPoolSize;
+            _connectionType = cluster.ConnectionType;
+            _connectionLifetime = cluster.ConnectionLifetime;
+            _bufferSize = cluster.BufferSize;
             _maintenanceTimer = new Timer(o => CheckFreeConnectionsAlive(), null, 30000L, 30000L);
         }
-
-        /// <summary>
-        /// 
-        /// </summary>
-        public TimeSpan ConnectionTimeout { get; private set; }
-        public ConnectionType ConnectionType { get; private set; }
-        public int BufferSize { get; private set; }
-
-        /// <summary>
-        /// 
-        /// </summary>
-        public int MinPoolSize { get; private set; }
-
-        /// <summary>
-        /// 
-        /// </summary>
-        public int MaxPoolSize { get; private set; }
-
-        /// <summary>
-        /// 
-        /// </summary>
-        public TimeSpan ConnectionLifetime { get; private set; }
 
         public IConnection Open() {
             if(_isDisposed) {
@@ -61,16 +45,15 @@ namespace FluentCassandra.Connections {
             while(conn == null) {
                 lock(_lock) {
                     var poolSize = _freeConnections.Count + _usedConnections.Count;
-                    if(poolSize >= MinPoolSize && _freeConnections.Count > 0) {
+                    if(poolSize >= _minPoolSize && _freeConnections.Count > 0) {
                         conn = _freeConnections.Dequeue();
                         if(!conn.IsOpen) {
                             conn.Dispose();
                             continue;
                         }
-                        _usedConnections.Add(conn);
                         break;
                     }
-                    if(poolSize >= MaxPoolSize) {
+                    if(poolSize >= _maxPoolSize) {
                         if(!Monitor.Wait(_lock, TimeSpan.FromSeconds(30)))
                             throw new TimeoutException("No connection could be made, timed out trying to acquirer a connection from the connection pool.");
 
@@ -81,10 +64,14 @@ namespace FluentCassandra.Connections {
                         throw new CassandraException("No connection could be made because all servers have failed.");
                     }
                     try {
-                        conn = _connectionFactory(server, ConnectionType, BufferSize);
+                        conn = _connectionFactory(server, _connectionType, _bufferSize);
                         conn.Open();
                         break;
                     } catch(SocketException exc) {
+
+                        // the only time we fail the server related to a connection is if the opening of the connection failed.
+                        // An already open connection failing is not indicative of a server failure and it is better to
+                        // assume it was only a per connection failure.
                         _serverManager.ErrorOccurred(conn.Server, exc);
                         Close(conn);
                         conn = null;
@@ -100,15 +87,10 @@ namespace FluentCassandra.Connections {
                 return;
             }
             lock(_lock) {
-                _usedConnections.RemoveWhere(x => x.Server.Equals(connection.Server));
-                _serverManager.ErrorOccurred(connection.Server, exc);
-
-                var currentFreeConnections = _freeConnections.ToArray();
-                _freeConnections.Clear();
-
-                foreach(var conn in currentFreeConnections)
-                    if(!conn.Server.Equals(connection.Server))
-                        _freeConnections.Enqueue(conn);
+                try {
+                    Close(connection);
+                } catch { }
+                _usedConnections.Remove(connection);
             }
         }
 
@@ -126,6 +108,8 @@ namespace FluentCassandra.Connections {
 
                 if(IsAlive(connection))
                     _freeConnections.Enqueue(connection);
+                else
+                    connection.Close();
             }
         }
 
@@ -138,7 +122,7 @@ namespace FluentCassandra.Connections {
             if(_isDisposed) {
                 return false;
             }
-            if(ConnectionLifetime > TimeSpan.Zero && connection.Created.Add(ConnectionLifetime) < DateTime.UtcNow)
+            if(_connectionLifetime > TimeSpan.Zero && connection.Created.Add(_connectionLifetime) < DateTime.UtcNow)
                 return false;
 
             return connection.IsOpen;
@@ -152,15 +136,23 @@ namespace FluentCassandra.Connections {
                 return;
             }
             lock(_lock) {
+                if(!_freeConnections.Any()) {
+                    return;
+                }
                 var freeConnections = _freeConnections.ToArray();
-                _freeConnections.Clear();
-
+                var liveConnections = new List<IConnection>();
                 foreach(var free in freeConnections) {
-                    if(IsAlive(free))
-                        _freeConnections.Enqueue(free);
-                    else if(free.IsOpen)
+                    if(IsAlive(free)) {
+                        liveConnections.Add(free);
+                        continue;
+                    }
+                    if(free.IsOpen)
                         free.Close();
                 }
+                if(freeConnections.Length == liveConnections.Count) {
+                    return;
+                }
+                _freeConnections = new Queue<IConnection>(liveConnections);
             }
         }
 
@@ -168,14 +160,21 @@ namespace FluentCassandra.Connections {
             if(_isDisposed) {
                 return;
             }
-            _isDisposed = true;
             lock(_lock) {
+                if(_isDisposed) {
+                    return;
+                }
+                _isDisposed = true;
                 foreach(var conn in _usedConnections) {
-                    conn.Close();
+                    try {
+                        conn.Close();
+                    } catch { }
                 }
                 _usedConnections.Clear();
                 foreach(var conn in _freeConnections) {
-                    conn.Close();
+                    try {
+                        conn.Close();
+                    } catch { }
                 }
                 _freeConnections.Clear();
             }

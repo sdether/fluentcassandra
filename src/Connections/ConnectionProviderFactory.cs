@@ -57,7 +57,7 @@ namespace FluentCassandra.Connections {
         private abstract class AProviderReferenceManager {
             private readonly IConnectionProvider _provider;
             private readonly IServerManager _serverManager;
-            private volatile int _refs;
+            private int _refs;
 
             protected AProviderReferenceManager(Cluster cluster) {
                 _serverManager = cluster.Count() == 1

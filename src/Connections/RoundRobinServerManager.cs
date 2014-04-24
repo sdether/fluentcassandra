@@ -32,9 +32,9 @@ namespace FluentCassandra.Connections {
                 }
                 Server[] clonedBlackList;
 
-                lock(_lock)
+                lock(_lock) {
                     clonedBlackList = _blackListed.ToArray();
-
+                }
                 foreach(var server in clonedBlackList) {
                     var connection = new Connection(server, ConnectionType.Simple, 1024);
 
@@ -44,9 +44,8 @@ namespace FluentCassandra.Connections {
                             _blackListed.Remove(server);
                             _live.Add(server);
                         }
-                    } catch { } finally {
                         connection.Close();
-                    }
+                    } catch { }
                 }
             } finally {
                 _recoveryTimer.Change(_recoveryTimerInterval, Timeout.Infinite);

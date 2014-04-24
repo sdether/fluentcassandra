@@ -487,8 +487,6 @@ namespace FluentCassandra.Connections {
             public void CopyTo(Server[] array, int arrayIndex) {
                 var servers = _this.Cluster.ToArray();
                 servers.CopyTo(array, arrayIndex);
-                _this.Cluster = _this.Cluster.WithServers(servers);
-                _this.ConnectionString = _this.GetConnectionString();
             }
 
             public bool Remove(Server item) {

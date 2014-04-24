@@ -231,10 +231,13 @@ namespace FluentCassandra
 		/// </param>
 		protected virtual void Dispose(bool disposing)
 		{
-			if (!WasDisposed && disposing && _connection != null)
-				ConnectionProvider.Close(_connection);
-            if(_hasOwnConnectionProvider) {
-                ConnectionProvider.Dispose();
+			if (!WasDisposed && disposing) {
+                if( _connection != null) {
+				    ConnectionProvider.Close(_connection);
+                }
+                if(_hasOwnConnectionProvider) {
+                    ConnectionProvider.Dispose();
+                }
             }
 			WasDisposed = true;
 		}
